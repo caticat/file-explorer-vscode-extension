@@ -11,10 +11,10 @@ Use any of these methods:
 
 - Press `Ctrl+Alt+E` on Windows/Linux or `Cmd+Alt+E` on macOS.
 - Open the Command Palette with `Ctrl+Shift+P` or `F1`, then run
-  **File Explorer: Open**.
+  **Simple File Explorer: Open**.
 - Click the folder icon added to the VS Code status bar.
 - In the built-in VS Code Explorer, right-click a file or folder and select
-  **Open in Workspace File Explorer**.
+  **Open in Simple File Explorer**.
 
 The shortcut and command focus the existing File Explorer editor when it is
 already open. The status bar button toggles it: open, focus, or close.
@@ -92,10 +92,10 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 
 - Windows/Linux 使用 `Ctrl+Alt+E`，macOS 使用 `Cmd+Alt+E`。
 - 按 `Ctrl+Shift+P` 或 `F1` 打开命令面板，然后执行
-  **File Explorer: Open**。
+  **Simple File Explorer: Open**。
 - 点击 VS Code 底部状态栏中的文件夹图标。
 - 在 VS Code 自带 Explorer 中右键文件或目录，选择
-  **Open in Workspace File Explorer**。
+  **Open in Simple File Explorer**。
 
 快捷键和命令会优先切换到已经打开的 File Explorer。状态栏按钮可以打开、
 聚焦或关闭 File Explorer。

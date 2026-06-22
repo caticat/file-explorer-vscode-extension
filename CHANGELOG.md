@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.0.14
+
+- Changed the Marketplace publisher from the placeholder `local` to the
+  existing publisher ID `panjie039`.
+- Updated command labels to use the `Simple File Explorer` display name.
+- Added Marketplace search keywords.
+
 ## 0.0.13
 
 - Renamed the Marketplace display name to `Simple File Explorer` to avoid a
