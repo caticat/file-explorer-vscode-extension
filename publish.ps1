@@ -22,32 +22,32 @@ function Run-Step {
     }
 }
 
-# Build
-Run-Step "Build" {
-    npm run compile
+# Package (vsce automatically runs vscode:prepublish)
+$packageName = "workspace-file-explorer-$((Get-Content package.json | ConvertFrom-Json).version).vsix"
+$packagePath = Join-Path $PSScriptRoot $packageName
+
+if (Test-Path -LiteralPath $packagePath) {
+    Remove-Item -LiteralPath $packagePath -Force
 }
 
-# Package
 Run-Step "Package" {
-    vsce package
+    vsce package --out $packagePath
 }
 
-# Get the generated .vsix file
-$vsix = Get-ChildItem -Filter "*.vsix" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if (-not $vsix) {
+if (-not (Test-Path -LiteralPath $packagePath)) {
     Write-Host "ERROR: No .vsix file found" -ForegroundColor Red
     exit 1
 }
-Write-Host "Using package: $($vsix.Name)" -ForegroundColor Green
+Write-Host "Using package: $packageName" -ForegroundColor Green
 
 # Publish to VS Code Marketplace
 Run-Step "Publish to VS Code Marketplace" {
-    vsce publish -p $VsceToken
+    vsce publish --packagePath $packagePath -p $VsceToken
 }
 
 # Publish to Open VSX (Cursor Marketplace)
 Run-Step "Publish to Open VSX (Cursor)" {
-    ovsx publish $vsix.FullName -p $OvsxToken
+    ovsx publish $packagePath -p $OvsxToken
 }
 
 Write-Host "`nAll done!" -ForegroundColor Green

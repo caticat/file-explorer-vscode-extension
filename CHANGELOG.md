@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.0.13
+
+- Renamed the Marketplace display name to `Simple File Explorer` to avoid a
+  collision with an existing extension.
+- Updated the publish script to publish the exact VSIX that was just packaged.
+
 ## 0.0.12
 
 - Simplified the extension icon to a single foreground folder.

@@ -1,4 +1,4 @@
-# File Explorer
+# Simple File Explorer
 
 A clean-room VS Code extension that provides a Windows-style, tabbed file browser
 inside the editor area.
@@ -82,7 +82,7 @@ Codicon artwork has separate attribution in `THIRD_PARTY_NOTICES.md`.
 
 # 中文说明
 
-File Explorer 是一个运行在 VS Code 编辑区中的多页签文件浏览器，操作方式
+Simple File Explorer 是一个运行在 VS Code 编辑区中的多页签文件浏览器，操作方式
 接近 Windows 资源管理器。它适合在大型项目中按目录浏览和查找文件，避免在
 VS Code 自带的树形 Explorer 中反复展开大量目录。
 

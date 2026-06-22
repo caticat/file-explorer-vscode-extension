@@ -1,8 +1,8 @@
 {
   "name": "workspace-file-explorer",
-  "displayName": "File Explorer",
+  "displayName": "Simple File Explorer",
   "description": "A tabbed, high-performance file explorer for Visual Studio Code.",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "publisher": "local",
   "repository": {
     "type": "git",
