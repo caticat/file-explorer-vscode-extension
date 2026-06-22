@@ -74,6 +74,7 @@ let initialPath = "";
 let pathSeparator = "/";
 let platform = "linux";
 let preferredViewMode: ExplorerTab["viewMode"] = "list";
+let preferredRecursiveSearch = false;
 let tabs: ExplorerTab[] = [];
 let activeTabId = "";
 let renderScheduled = false;
@@ -123,7 +124,12 @@ app.innerHTML = `
       <input id="address-input" class="address-input hidden" spellcheck="false">
       <div class="search-box">
         ${toolbarIcon("M6.5 2.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9.5 9.5 14 14", "search-icon")}
-        <input id="search-input" type="search" placeholder="Search">
+        <input
+          id="search-input"
+          type="search"
+          placeholder="Search"
+          title="Search by name. Supports * and ? wildcards."
+        >
         <button
           id="recursive-search"
           class="search-option"
@@ -237,10 +243,16 @@ elements.toggleHidden.addEventListener("click", () => {
 });
 elements.searchInput.addEventListener("input", debounce(runSearch, 180));
 elements.recursiveSearch.addEventListener("click", () => {
-  const tab = activeTab();
-  tab.recursiveSearch = !tab.recursiveSearch;
-  updateRecursiveSearchButton(tab);
-  runSearch();
+  preferredRecursiveSearch = !preferredRecursiveSearch;
+  for (const tab of tabs) {
+    tab.recursiveSearch = preferredRecursiveSearch;
+  }
+  vscode.postMessage({
+    command: "savePreferences",
+    recursiveSearch: preferredRecursiveSearch
+  });
+  updateRecursiveSearchButton(activeTab());
+  if (activeTab().searchQuery) runSearch();
 });
 elements.revealSystem.addEventListener("click", () => {
   if (contextMenuItem) {
@@ -343,6 +355,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
       platform = String(message.platform);
       preferredViewMode =
         message.preferredViewMode === "grid" ? "grid" : "list";
+      preferredRecursiveSearch = message.preferredRecursiveSearch === true;
       restoreOrCreateInitialTab();
       break;
     }
@@ -525,7 +538,7 @@ function restoreOrCreateInitialTab(): void {
       filteredItems: [],
       loading: false,
       searchQuery: "",
-      recursiveSearch: false,
+      recursiveSearch: preferredRecursiveSearch,
       searchMode: false,
       status: "",
       scrollTop: 0,
@@ -561,7 +574,7 @@ function createTab(tabPath: string): void {
     viewMode: preferredViewMode,
     loading: false,
     searchQuery: "",
-    recursiveSearch: false,
+    recursiveSearch: preferredRecursiveSearch,
     searchMode: false,
     status: "",
     scrollTop: 0,
@@ -714,13 +727,25 @@ function runSearch(): void {
 }
 
 function applyLocalFilter(tab: ExplorerTab): void {
-  const query = tab.searchQuery.toLocaleLowerCase();
+  const matchesQuery = createNameMatcher(tab.searchQuery);
   tab.filteredItems = tab.items.filter(
     (item) =>
       (tab.showHidden || !item.name.startsWith(".")) &&
-      (!query || item.name.toLocaleLowerCase().includes(query))
+      (!tab.searchQuery || matchesQuery(item.name))
   );
   sortItems(tab.filteredItems, tab);
+}
+
+function createNameMatcher(query: string): (name: string) => boolean {
+  if (!query.includes("*") && !query.includes("?")) {
+    const normalized = query.toLocaleLowerCase();
+    return (name) => name.toLocaleLowerCase().includes(normalized);
+  }
+
+  const escaped = query.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  const expression = escaped.replaceAll("*", ".*").replaceAll("?", ".");
+  const regex = new RegExp(`^${expression}$`, "i");
+  return (name) => regex.test(name);
 }
 
 function cancelTabRequests(tab: ExplorerTab): void {

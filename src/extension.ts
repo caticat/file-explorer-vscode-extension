@@ -143,6 +143,9 @@ async function handleMessage(
         if (message.viewMode === "list" || message.viewMode === "grid") {
           await context.globalState.update("preferredViewMode", message.viewMode);
         }
+        if (typeof message.recursiveSearch === "boolean") {
+          await context.globalState.update("preferredRecursiveSearch", message.recursiveSearch);
+        }
         break;
       case "navigationComplete":
         if (pendingNavigation?.id === asString(message.requestId)) {
@@ -272,6 +275,10 @@ async function sendInitialState(
     preferredViewMode: context.globalState.get<"list" | "grid">(
       "preferredViewMode",
       "list"
+    ),
+    preferredRecursiveSearch: context.globalState.get<boolean>(
+      "preferredRecursiveSearch",
+      false
     )
   });
 }
@@ -382,7 +389,8 @@ async function searchRecursively(
   showHidden: boolean
 ): Promise<void> {
   const rootPath = normalizeInputPath(requestedPath);
-  const query = rawQuery.trim().toLocaleLowerCase();
+  const query = rawQuery.trim();
+  const matchesQuery = createNameMatcher(query);
   const controller = beginRequest(requestId);
 
   try {
@@ -430,7 +438,7 @@ async function searchRecursively(
             pendingDirectories.push(itemPath);
           }
 
-          if (entry.name.toLocaleLowerCase().includes(query)) {
+          if (matchesQuery(entry.name)) {
             batch.push({
               name: entry.name,
               path: itemPath,
@@ -483,6 +491,18 @@ async function searchRecursively(
   } finally {
     finishRequest(requestId, controller);
   }
+}
+
+function createNameMatcher(query: string): (name: string) => boolean {
+  if (!query.includes("*") && !query.includes("?")) {
+    const normalized = query.toLocaleLowerCase();
+    return (name) => name.toLocaleLowerCase().includes(normalized);
+  }
+
+  const escaped = query.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  const expression = escaped.replaceAll("*", ".*").replaceAll("?", ".");
+  const regex = new RegExp(`^${expression}$`, "i");
+  return (name) => regex.test(name);
 }
 
 function updateDirectoryWatchers(panel: vscode.WebviewPanel, paths: string[]): void {

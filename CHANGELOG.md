@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.0.16
+
+- Fixed recursive-search mode being reset for restored tabs, folder changes,
+  and newly created tabs.
+- Persisted recursive-search mode as a shared extension preference.
+- Added `*` and `?` filename wildcards to current-folder and recursive search.
+
 ## 0.0.15
 
 - Unified the editor tab, status bar, and Explorer context-menu icon with the

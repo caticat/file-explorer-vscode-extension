@@ -37,6 +37,7 @@ already open. The status bar button toggles it: open, focus, or close.
 - Streaming directory enumeration and virtualized rendering for large folders.
 - Visible-row metadata loading instead of running `stat` for every file at once.
 - Current-folder filtering and cancellable recursive filename search.
+- Persistent recursive-search mode and basic filename wildcards (`*` and `?`).
 - Windows and Linux path handling.
 - Automatic refresh using debounced, non-recursive watchers for visible tabs.
 - New file, new folder, rename, and move-to-trash operations.
@@ -106,6 +107,8 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 - 详细信息和大图标两种视图，并在所有页签和下次启动时继承视图设置。
 - 大目录流式读取、虚拟滚动和可见区域元数据加载。
 - 当前目录搜索和可取消的递归文件名搜索。
+- 递归搜索模式会跨目录、页签和 VS Code 启动保留。
+- 文件名搜索支持基础通配符：`*` 匹配任意字符，`?` 匹配单个字符。
 - 新建、重命名、删除到回收站、永久删除、复制、剪切和粘贴。
 - 多选、按名称/修改时间/大小排序、隐藏点文件切换。
 - 自动刷新当前打开目录，不递归监控整个项目。
