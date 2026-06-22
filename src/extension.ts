@@ -84,7 +84,7 @@ function createExplorerPanel(context: vscode.ExtensionContext): void {
   );
 
   const panel = activePanel;
-  panel.iconPath = new vscode.ThemeIcon("files");
+  panel.iconPath = new vscode.ThemeIcon("folder-opened");
   panel.webview.html = createWebviewHtml(panel.webview, context.extensionUri);
 
   panel.onDidDispose(

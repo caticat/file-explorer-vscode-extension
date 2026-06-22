@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.0.15
+
+- Unified the editor tab, status bar, and Explorer context-menu icon with the
+  native VS Code `folder-opened` Codicon.
+
 ## 0.0.14
 
 - Changed the Marketplace publisher from the placeholder `local` to the
