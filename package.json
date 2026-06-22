@@ -1,0 +1,93 @@
+{
+  "name": "workspace-file-explorer",
+  "displayName": "File Explorer",
+  "description": "A tabbed, high-performance file explorer for Visual Studio Code.",
+  "version": "0.0.12",
+  "publisher": "local",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/caticat/file-explorer-vscode-extension.git"
+  },
+  "homepage": "https://github.com/caticat/file-explorer-vscode-extension#readme",
+  "bugs": {
+    "url": "https://github.com/caticat/file-explorer-vscode-extension/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "icon": "assets/file-explorer.png",
+  "files": [
+    "dist/**",
+    "assets/**",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:workspaceFileExplorer.open",
+    "onCommand:workspaceFileExplorer.toggle",
+    "onCommand:workspaceFileExplorer.openFromExplorer"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "workspaceFileExplorer.open",
+        "title": "File Explorer: Open"
+      },
+      {
+        "command": "workspaceFileExplorer.toggle",
+        "title": "File Explorer: Toggle"
+      },
+      {
+        "command": "workspaceFileExplorer.openFromExplorer",
+        "title": "Open in Workspace File Explorer",
+        "icon": "$(files)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "workspaceFileExplorer.open",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "workspaceFileExplorer.open"
+        },
+        {
+          "command": "workspaceFileExplorer.openFromExplorer",
+          "when": "false"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "workspaceFileExplorer.openFromExplorer",
+          "when": "resourceScheme == file",
+          "group": "navigation@9"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "check": "tsc --noEmit",
+    "compile": "npm run check && node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "npm run check && node esbuild.js --production"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/vscode": "^1.100.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0"
+  }
+}
