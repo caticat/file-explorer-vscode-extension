@@ -30,7 +30,11 @@ already open. The status bar button toggles it: open, focus, or close.
 - Opens, focuses, or closes from the files icon in the VS Code status bar.
 - Opens files and folders from the built-in VS Code Explorer context menu.
 - One-click return to the workspace root.
+- In multi-root workspaces, Home returns to the root containing the current path.
 - Multiple independent file tabs.
+- Drag-and-drop tab ordering.
+- Optional workspace-specific restoration of tab order, paths, and active tab.
+- One initial tab per root folder in multi-root workspaces without saved state.
 - Back, forward, up, refresh, breadcrumbs, and manual path entry (`Ctrl+L`).
 - Detailed list and large-icon views.
 - A shared view-mode preference that persists across tabs and VS Code sessions.
@@ -40,6 +44,8 @@ already open. The status bar button toggles it: open, focus, or close.
 - Persistent recursive-search mode and basic filename wildcards (`*` and `?`).
 - Windows and Linux path handling.
 - Automatic refresh using debounced, non-recursive watchers for visible tabs.
+- Safe fallback to an existing parent or workspace root when an open directory
+  is deleted.
 - New file, new folder, rename, and move-to-trash operations.
 - Multi-selection, copy, cut, and paste.
 - Sortable name, modified-time, and size columns.
@@ -59,6 +65,11 @@ npm run compile
 
 Press `F5` in VS Code and run `File Explorer: Open` in the Extension Development
 Host.
+
+## Settings
+
+- `simpleFileExplorer.restoreWorkspaceSession` — restore tab order, current
+  paths, and the active tab separately for each workspace. Default: `true`.
 
 ## Scope
 
@@ -104,6 +115,10 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 ## 主要功能
 
 - 多页签、前进、后退、向上、工作区首页和手动路径输入。
+- 多根工作区中，首页按钮会返回当前路径所属的工作区根目录。
+- 支持拖动页签调整顺序。
+- 可按工作区恢复页签顺序、当前路径和活动页签。
+- 多根工作区在没有保存状态时，会为每个根目录创建一个初始页签。
 - 详细信息和大图标两种视图，并在所有页签和下次启动时继承视图设置。
 - 大目录流式读取、虚拟滚动和可见区域元数据加载。
 - 当前目录搜索和可取消的递归文件名搜索。
@@ -112,6 +127,7 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 - 新建、重命名、删除到回收站、永久删除、复制、剪切和粘贴。
 - 多选、按名称/修改时间/大小排序、隐藏点文件切换。
 - 自动刷新当前打开目录，不递归监控整个项目。
+- 当前打开目录被删除时，自动回退到有效父目录或其他工作区根目录。
 - 支持 Windows 和 Linux；macOS 理论兼容但尚未正式测试。
 
 ## 常用快捷键
@@ -126,3 +142,8 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 - `Ctrl+C` / `Ctrl+X` / `Ctrl+V`：复制、剪切和粘贴。
 - `F5`：刷新当前目录。
 - 在非输入框中直接输入字符：按文件名前缀快速选中。
+
+## 设置
+
+- `simpleFileExplorer.restoreWorkspaceSession`：按工作区恢复页签顺序、
+  当前路径和活动页签，默认开启。

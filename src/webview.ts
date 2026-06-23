@@ -48,21 +48,10 @@ interface ExplorerTab {
   externalNavigationId?: string;
 }
 
-interface PersistedState {
-  tabs: Array<
-    Pick<
-      ExplorerTab,
-      | "id"
-      | "path"
-      | "history"
-      | "historyIndex"
-      | "viewMode"
-      | "showHidden"
-      | "sortKey"
-      | "sortDirection"
-    >
-  >;
-  activeTabId: string;
+interface WorkspaceSession {
+  version: 1;
+  tabs: Array<{ path: string }>;
+  activeTabIndex: number;
 }
 
 const vscode = acquireVsCodeApi();
@@ -75,9 +64,13 @@ let pathSeparator = "/";
 let platform = "linux";
 let preferredViewMode: ExplorerTab["viewMode"] = "list";
 let preferredRecursiveSearch = false;
+let restoreWorkspaceSession = true;
 let tabs: ExplorerTab[] = [];
 let activeTabId = "";
 let renderScheduled = false;
+let sessionSaveTimer = 0;
+let suppressSessionSave = false;
+let draggingTabId: string | undefined;
 let contextMenuItem: DirectoryItem | undefined;
 let typeAheadBuffer = "";
 let typeAheadTimer = 0;
@@ -217,7 +210,9 @@ elements.newTab.addEventListener("click", () => createTab(getWorkspacePath()));
 elements.back.addEventListener("click", () => moveHistory(-1));
 elements.forward.addEventListener("click", () => moveHistory(1));
 elements.up.addEventListener("click", navigateUp);
-elements.workspaceHome.addEventListener("click", () => navigate(getWorkspacePath()));
+elements.workspaceHome.addEventListener("click", () =>
+  navigate(getWorkspacePath(activeTab().path))
+);
 elements.refresh.addEventListener("click", () => loadDirectory(activeTab(), false));
 elements.newFile.addEventListener("click", () =>
   vscode.postMessage({ command: "createFile", path: activeTab().path })
@@ -238,7 +233,6 @@ elements.toggleHidden.addEventListener("click", () => {
   tab.showHidden = !tab.showHidden;
   applyLocalFilter(tab);
   if (tab.recursiveSearch && tab.searchQuery) runSearch();
-  saveState();
   scheduleRender();
 });
 elements.searchInput.addEventListener("input", debounce(runSearch, 180));
@@ -343,6 +337,9 @@ window.addEventListener("pointerdown", (event) => {
   }
 });
 window.addEventListener("message", (event) => handleHostMessage(event.data));
+window.addEventListener("beforeunload", () => {
+  flushSavedSession();
+});
 
 vscode.postMessage({ command: "ready" });
 
@@ -356,7 +353,11 @@ function handleHostMessage(message: Record<string, unknown>): void {
       preferredViewMode =
         message.preferredViewMode === "grid" ? "grid" : "list";
       preferredRecursiveSearch = message.preferredRecursiveSearch === true;
-      restoreOrCreateInitialTab();
+      restoreWorkspaceSession = message.restoreWorkspaceSession !== false;
+      const workspaceSession = isWorkspaceSession(message.workspaceSession)
+        ? message.workspaceSession
+        : undefined;
+      restoreOrCreateInitialTab(workspaceSession);
       break;
     }
     case "navigateExternal": {
@@ -368,6 +369,15 @@ function handleHostMessage(message: Record<string, unknown>): void {
         tab.showHidden = true;
       }
       navigate(targetPath, true, revealPath);
+      break;
+    }
+    case "workspaceSessionSettingChanged": {
+      restoreWorkspaceSession = message.enabled === true;
+      if (restoreWorkspaceSession) {
+        saveState();
+      } else {
+        window.clearTimeout(sessionSaveTimer);
+      }
       break;
     }
     case "directoryStart": {
@@ -409,13 +419,39 @@ function handleHostMessage(message: Record<string, unknown>): void {
       tab.loading = false;
       sortItems(tab.items, tab);
       applyLocalFilter(tab);
+      cleanSelection(tab);
       revealSelectedItem(tab);
       completeExternalNavigation(tab);
       tab.pendingRevealPath = undefined;
       tab.status = `${Number(message.count).toLocaleString()} items`;
       tab.requestId = undefined;
-      saveState();
       scheduleRender();
+      break;
+    }
+    case "directoryUnavailable": {
+      const tab = tabForRequest(String(message.requestId));
+      if (!tab) return;
+      tab.requestId = undefined;
+      tab.loading = false;
+      tab.items = [];
+      tab.filteredItems = [];
+      tab.selectedPath = undefined;
+      tab.selectedPaths = [];
+      tab.selectionAnchorPath = undefined;
+      tab.status = String(message.message);
+      const fallbackPath = String(message.fallbackPath);
+      if (normalizeForComparison(fallbackPath) !== normalizeForComparison(tab.path)) {
+        tab.path = fallbackPath;
+        tab.title = basename(fallbackPath) || fallbackPath;
+        tab.history = [fallbackPath];
+        tab.historyIndex = 0;
+        tab.scrollTop = 0;
+        syncDirectoryWatchers();
+        loadDirectory(tab, false);
+        saveState();
+      } else {
+        scheduleRender();
+      }
       break;
     }
     case "directoryChanged": {
@@ -527,43 +563,36 @@ function handleHostMessage(message: Record<string, unknown>): void {
   }
 }
 
-function restoreOrCreateInitialTab(): void {
-  const persisted = vscode.getState() as PersistedState | undefined;
-  if (persisted?.tabs?.length) {
-    tabs = persisted.tabs.map((saved) => ({
-      ...saved,
-      viewMode: preferredViewMode,
-      title: basename(saved.path) || saved.path,
-      items: [],
-      filteredItems: [],
-      loading: false,
-      searchQuery: "",
-      recursiveSearch: preferredRecursiveSearch,
-      searchMode: false,
-      status: "",
-      scrollTop: 0,
-      selectedPath: undefined,
-      pendingRevealPath: undefined,
-      selectedPaths: [],
-      selectionAnchorPath: undefined,
-      showHidden: saved.showHidden ?? false,
-      sortKey: saved.sortKey ?? "name",
-      sortDirection: saved.sortDirection ?? "asc"
-    }));
-    activeTabId = tabs.some((tab) => tab.id === persisted.activeTabId)
-      ? persisted.activeTabId
-      : tabs[0].id;
-    syncDirectoryWatchers();
-    for (const tab of tabs) {
-      loadDirectory(tab, false);
-    }
-    return;
+function restoreOrCreateInitialTab(workspaceSession?: WorkspaceSession): void {
+  const initialPaths = workspaceSession?.tabs.length
+    ? workspaceSession.tabs.map((tab) => tab.path)
+    : workspaceRoots.length > 1
+      ? workspaceRoots.map((root) => root.path)
+      : [initialPath];
+
+  tabs = initialPaths.map(createTabModel);
+  const activeIndex = workspaceSession
+    ? Math.min(workspaceSession.activeTabIndex, tabs.length - 1)
+    : 0;
+  activeTabId = tabs[Math.max(0, activeIndex)].id;
+  syncDirectoryWatchers();
+  for (const tab of tabs) {
+    loadDirectory(tab, false);
   }
-  createTab(initialPath);
+  saveState();
 }
 
 function createTab(tabPath: string): void {
-  const tab: ExplorerTab = {
+  const tab = createTabModel(tabPath);
+  tabs.push(tab);
+  activeTabId = tab.id;
+  syncDirectoryWatchers();
+  loadDirectory(tab, false);
+  saveState();
+}
+
+function createTabModel(tabPath: string): ExplorerTab {
+  return {
     id: randomId(),
     path: tabPath,
     title: basename(tabPath) || tabPath,
@@ -586,15 +615,13 @@ function createTab(tabPath: string): void {
     sortKey: "name",
     sortDirection: "asc"
   };
-  tabs.push(tab);
-  activeTabId = tab.id;
-  syncDirectoryWatchers();
-  loadDirectory(tab, false);
 }
 
 function closeTab(tabId: string): void {
   if (tabs.length === 1) {
     cancelTabRequests(tabs[0]);
+    suppressSessionSave = true;
+    clearSavedSession();
     vscode.postMessage({ command: "closePanel" });
     return;
   }
@@ -653,6 +680,7 @@ function navigate(targetPath: string, pushHistory = true, revealPath?: string): 
   tab.path = targetPath;
   syncDirectoryWatchers();
   loadDirectory(tab, false);
+  saveState();
 }
 
 function moveHistory(offset: number): void {
@@ -665,6 +693,7 @@ function moveHistory(offset: number): void {
   tab.path = tab.history[targetIndex];
   syncDirectoryWatchers();
   loadDirectory(tab, false);
+  saveState();
 }
 
 function navigateUp(): void {
@@ -793,7 +822,6 @@ function setViewMode(viewMode: ExplorerTab["viewMode"]): void {
   }
   elements.viewport.scrollTop = 0;
   vscode.postMessage({ command: "savePreferences", viewMode });
-  saveState();
   scheduleRender();
 }
 
@@ -840,7 +868,40 @@ function renderTabs(): void {
       const tabElement = document.createElement("button");
       tabElement.className = `tab ${tab.id === activeTabId ? "active" : ""}`;
       tabElement.title = tab.path;
+      tabElement.draggable = true;
       tabElement.addEventListener("click", () => activateTab(tab.id));
+      tabElement.addEventListener("dragstart", (event) => {
+        draggingTabId = tab.id;
+        tabElement.classList.add("dragging");
+        event.dataTransfer?.setData("text/plain", tab.id);
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = "move";
+        }
+      });
+      tabElement.addEventListener("dragover", (event) => {
+        if (!draggingTabId || draggingTabId === tab.id) return;
+        event.preventDefault();
+        const bounds = tabElement.getBoundingClientRect();
+        const after = event.clientX >= bounds.left + bounds.width / 2;
+        tabElement.classList.toggle("drop-before", !after);
+        tabElement.classList.toggle("drop-after", after);
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = "move";
+        }
+      });
+      tabElement.addEventListener("dragleave", () => {
+        tabElement.classList.remove("drop-before", "drop-after");
+      });
+      tabElement.addEventListener("drop", (event) => {
+        event.preventDefault();
+        if (!draggingTabId || draggingTabId === tab.id) return;
+        const bounds = tabElement.getBoundingClientRect();
+        reorderTab(draggingTabId, tab.id, event.clientX >= bounds.left + bounds.width / 2);
+      });
+      tabElement.addEventListener("dragend", () => {
+        draggingTabId = undefined;
+        clearTabDragStyles();
+      });
 
       const label = document.createElement("span");
       label.textContent = tab.title;
@@ -858,6 +919,28 @@ function renderTabs(): void {
       return tabElement;
     })
   );
+}
+
+function reorderTab(sourceId: string, targetId: string, after: boolean): void {
+  const sourceIndex = tabs.findIndex((tab) => tab.id === sourceId);
+  if (sourceIndex < 0) return;
+  const [sourceTab] = tabs.splice(sourceIndex, 1);
+  const targetIndex = tabs.findIndex((tab) => tab.id === targetId);
+  if (targetIndex < 0) {
+    tabs.splice(sourceIndex, 0, sourceTab);
+    return;
+  }
+  tabs.splice(targetIndex + (after ? 1 : 0), 0, sourceTab);
+  draggingTabId = undefined;
+  clearTabDragStyles();
+  saveState();
+  scheduleRender();
+}
+
+function clearTabDragStyles(): void {
+  for (const tabElement of Array.from(elements.tabs.querySelectorAll(".tab"))) {
+    tabElement.classList.remove("dragging", "drop-before", "drop-after");
+  }
 }
 
 function renderAddress(tab: ExplorerTab): void {
@@ -1067,7 +1150,6 @@ function changeSort(sortKey: ExplorerTab["sortKey"]): void {
   }
   sortItems(tab.items, tab);
   applyLocalFilter(tab);
-  saveState();
   scheduleRender();
 }
 
@@ -1080,8 +1162,41 @@ function requestMetadata(items: DirectoryItem[]): void {
   }
 }
 
-function getWorkspacePath(): string {
+function getWorkspacePath(currentPath?: string): string {
+  if (currentPath) {
+    const matchingRoot = workspaceRoots
+      .filter((root) => isPathInsideOrEqual(currentPath, root.path))
+      .sort((left, right) => right.path.length - left.path.length)[0];
+    if (matchingRoot) return matchingRoot.path;
+  }
   return workspaceRoots[0]?.path ?? initialPath;
+}
+
+function isPathInsideOrEqual(candidate: string, root: string): boolean {
+  const normalizedCandidate = normalizeForComparison(candidate);
+  const normalizedRoot = normalizeForComparison(root);
+  if (normalizedCandidate === normalizedRoot) return true;
+  const separator = platform === "win32" ? "\\" : "/";
+  return normalizedCandidate.startsWith(`${normalizedRoot}${separator}`);
+}
+
+function cleanSelection(tab: ExplorerTab): void {
+  const existingPaths = new Set(tab.items.map((item) => normalizeForComparison(item.path)));
+  tab.selectedPaths = tab.selectedPaths.filter((selectedPath) =>
+    existingPaths.has(normalizeForComparison(selectedPath))
+  );
+  if (
+    tab.selectedPath &&
+    !existingPaths.has(normalizeForComparison(tab.selectedPath))
+  ) {
+    tab.selectedPath = tab.selectedPaths[0];
+  }
+  if (
+    tab.selectionAnchorPath &&
+    !existingPaths.has(normalizeForComparison(tab.selectionAnchorPath))
+  ) {
+    tab.selectionAnchorPath = tab.selectedPaths[0];
+  }
 }
 
 function activeTab(): ExplorerTab {
@@ -1189,22 +1304,52 @@ function randomId(): string {
 }
 
 function saveState(): void {
-  const state: PersistedState = {
-    tabs: tabs.map(
-      ({ id, path, history, historyIndex, viewMode, showHidden, sortKey, sortDirection }) => ({
-      id,
-      path,
-      history,
-      historyIndex,
-      viewMode,
-      showHidden,
-      sortKey,
-      sortDirection
-    })
-    ),
-    activeTabId
-  };
-  vscode.setState(state);
+  if (!restoreWorkspaceSession || suppressSessionSave || !tabs.length) return;
+  window.clearTimeout(sessionSaveTimer);
+  sessionSaveTimer = window.setTimeout(() => {
+    flushSavedSession();
+  }, 300);
+}
+
+function clearSavedSession(): void {
+  window.clearTimeout(sessionSaveTimer);
+  if (restoreWorkspaceSession) {
+    vscode.postMessage({ command: "clearWorkspaceSession" });
+  }
+}
+
+function flushSavedSession(): void {
+  window.clearTimeout(sessionSaveTimer);
+  if (!restoreWorkspaceSession || suppressSessionSave || !tabs.length) return;
+  const activeTabIndex = Math.max(
+    0,
+    tabs.findIndex((tab) => tab.id === activeTabId)
+  );
+  vscode.postMessage({
+    command: "saveWorkspaceSession",
+    session: {
+      version: 1,
+      tabs: tabs.map((tab) => ({ path: tab.path })),
+      activeTabIndex
+    } satisfies WorkspaceSession
+  });
+}
+
+function isWorkspaceSession(value: unknown): value is WorkspaceSession {
+  if (!value || typeof value !== "object") return false;
+  const session = value as Record<string, unknown>;
+  return (
+    session.version === 1 &&
+    Array.isArray(session.tabs) &&
+    session.tabs.length > 0 &&
+    session.tabs.every(
+      (tab) =>
+        tab !== null &&
+        typeof tab === "object" &&
+        typeof (tab as Record<string, unknown>).path === "string"
+    ) &&
+    typeof session.activeTabIndex === "number"
+  );
 }
 
 function showTemporaryStatus(message: string): void {

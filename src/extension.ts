@@ -19,6 +19,14 @@ const DIRECTORY_BATCH_SIZE = 250;
 const SEARCH_BATCH_SIZE = 100;
 const SEARCH_RESULT_LIMIT = 5000;
 const SEARCH_IGNORED_DIRECTORIES = new Set([".git", "node_modules"]);
+const WORKSPACE_SESSION_KEY = "workspaceSession.v1";
+const MAX_SAVED_TABS = 50;
+
+interface WorkspaceSession {
+  version: 1;
+  tabs: Array<{ path: string }>;
+  activeTabIndex: number;
+}
 
 let activePanel: vscode.WebviewPanel | undefined;
 let activePanelReady = false;
@@ -55,7 +63,14 @@ export function activate(context: vscode.ExtensionContext): void {
         if (!uri || uri.scheme !== "file") return;
         await openUriInExplorer(context, uri);
       }
-    )
+    ),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (!event.affectsConfiguration("simpleFileExplorer.restoreWorkspaceSession")) return;
+      activePanel?.webview.postMessage({
+        command: "workspaceSessionSettingChanged",
+        enabled: shouldRestoreWorkspaceSession()
+      });
+    })
   );
 
   const statusBarItem = vscode.window.createStatusBarItem(
@@ -147,13 +162,25 @@ async function handleMessage(
           await context.globalState.update("preferredRecursiveSearch", message.recursiveSearch);
         }
         break;
+      case "saveWorkspaceSession":
+        await saveWorkspaceSession(context, message.session);
+        break;
+      case "clearWorkspaceSession":
+        if (shouldRestoreWorkspaceSession()) {
+          await context.workspaceState.update(WORKSPACE_SESSION_KEY, undefined);
+        }
+        break;
       case "navigationComplete":
         if (pendingNavigation?.id === asString(message.requestId)) {
           pendingNavigation = undefined;
         }
         break;
       case "readDirectory":
-        await streamDirectory(panel, asString(message.requestId), asString(message.path));
+        await readDirectoryWithRecovery(
+          panel,
+          asString(message.requestId),
+          asString(message.path)
+        );
         break;
       case "cancelRequest":
         cancelRequest(asString(message.requestId));
@@ -265,6 +292,10 @@ async function sendInitialState(
     activeWorkspace?.uri.fsPath ??
     workspaceRoots[0]?.path ??
     os.homedir();
+  const restoreWorkspaceSession = shouldRestoreWorkspaceSession();
+  const workspaceSession = restoreWorkspaceSession
+    ? await readWorkspaceSession(context)
+    : undefined;
 
   await panel.webview.postMessage({
     command: "initialize",
@@ -279,8 +310,78 @@ async function sendInitialState(
     preferredRecursiveSearch: context.globalState.get<boolean>(
       "preferredRecursiveSearch",
       false
-    )
+    ),
+    restoreWorkspaceSession,
+    workspaceSession
   });
+}
+
+function shouldRestoreWorkspaceSession(): boolean {
+  return vscode.workspace
+    .getConfiguration("simpleFileExplorer")
+    .get<boolean>("restoreWorkspaceSession", true);
+}
+
+async function readWorkspaceSession(
+  context: vscode.ExtensionContext
+): Promise<WorkspaceSession | undefined> {
+  const saved = context.workspaceState.get<WorkspaceSession>(WORKSPACE_SESSION_KEY);
+  if (!saved || saved.version !== 1 || !Array.isArray(saved.tabs) || !saved.tabs.length) {
+    return undefined;
+  }
+
+  const validTabs: Array<{ path: string }> = [];
+  let activeTabIndex = 0;
+  for (let index = 0; index < saved.tabs.length && validTabs.length < MAX_SAVED_TABS; index += 1) {
+    const savedPath = saved.tabs[index]?.path;
+    if (typeof savedPath !== "string") continue;
+    try {
+      const resolvedPath = path.resolve(savedPath);
+      if ((await fs.promises.stat(resolvedPath)).isDirectory()) {
+        if (index === saved.activeTabIndex) {
+          activeTabIndex = validTabs.length;
+        }
+        validTabs.push({ path: resolvedPath });
+      }
+    } catch {
+      // Ignore deleted or inaccessible saved directories.
+    }
+  }
+
+  if (!validTabs.length) return undefined;
+  return {
+    version: 1,
+    tabs: validTabs,
+    activeTabIndex: Math.min(activeTabIndex, validTabs.length - 1)
+  };
+}
+
+async function saveWorkspaceSession(
+  context: vscode.ExtensionContext,
+  rawSession: unknown
+): Promise<void> {
+  if (!shouldRestoreWorkspaceSession() || !rawSession || typeof rawSession !== "object") return;
+  const session = rawSession as Record<string, unknown>;
+  if (!Array.isArray(session.tabs)) return;
+
+  const tabs = session.tabs
+    .slice(0, MAX_SAVED_TABS)
+    .map((tab) => {
+      if (!tab || typeof tab !== "object") return undefined;
+      const tabPath = (tab as Record<string, unknown>).path;
+      return typeof tabPath === "string" ? { path: path.resolve(tabPath) } : undefined;
+    })
+    .filter((tab): tab is { path: string } => tab !== undefined);
+  if (!tabs.length) return;
+
+  const requestedIndex =
+    typeof session.activeTabIndex === "number" ? Math.trunc(session.activeTabIndex) : 0;
+  const saved: WorkspaceSession = {
+    version: 1,
+    tabs,
+    activeTabIndex: Math.max(0, Math.min(requestedIndex, tabs.length - 1))
+  };
+  await context.workspaceState.update(WORKSPACE_SESSION_KEY, saved);
 }
 
 async function streamDirectory(
@@ -351,6 +452,76 @@ async function streamDirectory(
     }
   } finally {
     finishRequest(requestId, controller);
+  }
+}
+
+async function readDirectoryWithRecovery(
+  panel: vscode.WebviewPanel,
+  requestId: string,
+  requestedPath: string
+): Promise<void> {
+  try {
+    await streamDirectory(panel, requestId, requestedPath);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT" && code !== "ENOTDIR") {
+      throw error;
+    }
+
+    const fallbackPath = await findFallbackDirectory(requestedPath);
+    await panel.webview.postMessage({
+      command: "directoryUnavailable",
+      requestId,
+      path: path.resolve(requestedPath),
+      fallbackPath,
+      message: `Directory no longer exists: ${path.resolve(requestedPath)}`
+    });
+  }
+}
+
+async function findFallbackDirectory(requestedPath: string): Promise<string> {
+  const resolvedPath = path.resolve(requestedPath);
+  const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map((folder) =>
+    path.resolve(folder.uri.fsPath)
+  );
+  const matchingRoot = workspaceRoots
+    .filter((root) => isPathInsideOrEqual(resolvedPath, root))
+    .sort((left, right) => right.length - left.length)[0];
+
+  if (matchingRoot) {
+    let candidate = resolvedPath;
+    while (isPathInsideOrEqual(candidate, matchingRoot)) {
+      if (await isExistingDirectory(candidate)) return candidate;
+      const parent = path.dirname(candidate);
+      if (parent === candidate) break;
+      candidate = parent;
+    }
+  } else {
+    let candidate = resolvedPath;
+    while (true) {
+      if (await isExistingDirectory(candidate)) return candidate;
+      const parent = path.dirname(candidate);
+      if (parent === candidate) break;
+      candidate = parent;
+    }
+  }
+
+  for (const root of workspaceRoots) {
+    if (await isExistingDirectory(root)) return root;
+  }
+  return os.homedir();
+}
+
+function isPathInsideOrEqual(candidate: string, root: string): boolean {
+  const relative = path.relative(root, candidate);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+async function isExistingDirectory(directoryPath: string): Promise<boolean> {
+  try {
+    return (await fs.promises.stat(directoryPath)).isDirectory();
+  } catch {
+    return false;
   }
 }
 
@@ -533,6 +704,7 @@ function updateDirectoryWatchers(panel: vscode.WebviewPanel, paths: string[]): v
         );
       });
       watcher.on("error", () => {
+        panel.webview.postMessage({ command: "directoryChanged", path: watchedPath });
         watcher.close();
         directoryWatchers.delete(watchedPath);
       });

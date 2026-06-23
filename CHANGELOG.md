@@ -1,5 +1,20 @@
 # Change Log
 
+## 0.0.18
+
+- Fixed the Home button to return to the workspace root that contains the
+  current tab path in multi-root workspaces.
+- Added automatic recovery when the currently open directory is deleted.
+- Preserved only still-existing selections after a directory refresh.
+
+## 0.0.17
+
+- Added drag-and-drop ordering for internal File Explorer tabs.
+- Added optional workspace-scoped session restoration for tab order, current
+  paths, and the active tab.
+- Added one initial tab per workspace root when a multi-root workspace has no
+  saved File Explorer session.
+
 ## 0.0.16
 
 - Fixed recursive-search mode being reset for restored tabs, folder changes,

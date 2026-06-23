@@ -2,7 +2,7 @@
   "name": "workspace-file-explorer",
   "displayName": "Simple File Explorer",
   "description": "A tabbed, high-performance file explorer for Visual Studio Code.",
-  "version": "0.0.16",
+  "version": "0.0.18",
   "publisher": "panjie039",
   "repository": {
     "type": "git",
@@ -82,6 +82,16 @@
           "group": "navigation@9"
         }
       ]
+    },
+    "configuration": {
+      "title": "Simple File Explorer",
+      "properties": {
+        "simpleFileExplorer.restoreWorkspaceSession": {
+          "type": "boolean",
+          "default": true,
+          "description": "Restore tab order, current paths, and the active tab separately for each VS Code workspace."
+        }
+      }
     }
   },
   "scripts": {

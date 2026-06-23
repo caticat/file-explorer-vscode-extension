@@ -91,6 +91,18 @@ button {
   box-shadow: inset 0 2px var(--vscode-focusBorder);
 }
 
+.tab.dragging {
+  opacity: 0.45;
+}
+
+.tab.drop-before {
+  box-shadow: inset 2px 0 var(--vscode-focusBorder);
+}
+
+.tab.drop-after {
+  box-shadow: inset -2px 0 var(--vscode-focusBorder);
+}
+
 .tab-label {
   overflow: hidden;
   text-overflow: ellipsis;
