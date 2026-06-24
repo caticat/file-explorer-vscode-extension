@@ -76,6 +76,19 @@ let typeAheadBuffer = "";
 let typeAheadTimer = 0;
 let clipboardPaths: string[] = [];
 let clipboardCut = false;
+let selectionDrag: SelectionDragState | undefined;
+let suppressNextItemClick = false;
+
+interface SelectionDragState {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+  additive: boolean;
+  baseSelection: string[];
+  active: boolean;
+}
 
 app.innerHTML = `
   <div class="shell">
@@ -154,6 +167,7 @@ app.innerHTML = `
       <div id="spacer" class="spacer"></div>
       <div id="items" class="items"></div>
       <div id="empty" class="empty hidden"></div>
+      <div id="selection-box" class="selection-box hidden"></div>
     </div>
     <div class="footer-bar">
       <span id="status" class="status"></span>
@@ -163,7 +177,7 @@ app.innerHTML = `
   <div id="context-menu" class="context-menu hidden" role="menu">
     <button id="reveal-system" role="menuitem">Reveal in System File Manager</button>
     <button id="show-in-explorer" role="menuitem">Show in This File Explorer</button>
-    <div class="menu-separator"></div>
+    <div id="item-menu-separator" class="menu-separator"></div>
     <button id="rename-item" role="menuitem">Rename</button>
     <button id="copy-items" role="menuitem">Copy</button>
     <button id="cut-items" role="menuitem">Cut</button>
@@ -196,9 +210,11 @@ const elements = {
   spacer: byId("spacer"),
   items: byId("items"),
   empty: byId("empty"),
+  selectionBox: byId("selection-box"),
   contextMenu: byId("context-menu"),
   revealSystem: button("reveal-system"),
   showInExplorer: button("show-in-explorer"),
+  itemMenuSeparator: byId("item-menu-separator"),
   renameItem: button("rename-item"),
   copyItems: button("copy-items"),
   cutItems: button("cut-items"),
@@ -248,6 +264,12 @@ elements.recursiveSearch.addEventListener("click", () => {
   updateRecursiveSearchButton(activeTab());
   if (activeTab().searchQuery) runSearch();
 });
+elements.contextMenu.addEventListener("pointerdown", (event) => {
+  event.stopPropagation();
+});
+elements.contextMenu.addEventListener("click", (event) => {
+  event.stopPropagation();
+});
 elements.revealSystem.addEventListener("click", () => {
   if (contextMenuItem) {
     vscode.postMessage({ command: "revealInSystem", path: contextMenuItem.path });
@@ -260,11 +282,11 @@ elements.showInExplorer.addEventListener("click", () => {
   }
   hideContextMenu();
 });
-elements.renameItem.addEventListener("click", renameSelection);
-elements.copyItems.addEventListener("click", () => copySelection(false));
-elements.cutItems.addEventListener("click", () => copySelection(true));
-elements.pasteItems.addEventListener("click", pasteClipboard);
-elements.deleteItems.addEventListener("click", () => deleteSelection(false));
+elements.renameItem.addEventListener("click", () => runContextMenuAction(renameSelection));
+elements.copyItems.addEventListener("click", () => runContextMenuAction(() => copySelection(false)));
+elements.cutItems.addEventListener("click", () => runContextMenuAction(() => copySelection(true)));
+elements.pasteItems.addEventListener("click", () => runContextMenuAction(pasteClipboard));
+elements.deleteItems.addEventListener("click", () => runContextMenuAction(() => deleteSelection(false)));
 elements.listHeader.addEventListener("click", (event) => {
   const target = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-sort]");
   if (!target) return;
@@ -296,6 +318,9 @@ window.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "l") {
     event.preventDefault();
     beginAddressEdit();
+  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+    event.preventDefault();
+    selectAllItems();
   } else if (event.key === "Backspace" || (event.altKey && event.key === "ArrowUp")) {
     event.preventDefault();
     navigateUp();
@@ -336,6 +361,22 @@ window.addEventListener("pointerdown", (event) => {
     hideContextMenu();
   }
 });
+elements.viewport.addEventListener("pointerdown", beginSelectionDrag);
+elements.viewport.addEventListener("click", clearSelectionFromEmptyClick);
+elements.viewport.addEventListener("contextmenu", showViewportContextMenu);
+window.addEventListener("pointermove", updateSelectionDrag);
+window.addEventListener("pointerup", endSelectionDrag);
+window.addEventListener("pointercancel", endSelectionDrag);
+window.addEventListener(
+  "click",
+  (event) => {
+    if (!suppressNextItemClick) return;
+    suppressNextItemClick = false;
+    event.preventDefault();
+    event.stopPropagation();
+  },
+  true
+);
 window.addEventListener("message", (event) => handleHostMessage(event.data));
 window.addEventListener("beforeunload", () => {
   flushSavedSession();
@@ -1039,6 +1080,7 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
     )
   );
   element.title = item.path;
+  element.dataset.path = item.path;
 
   const icon = createFileIcon(item);
 
@@ -1060,6 +1102,11 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
   }
 
   element.addEventListener("click", (event) => {
+    if (suppressNextItemClick) {
+      event.preventDefault();
+      suppressNextItemClick = false;
+      return;
+    }
     updateSelection(tab, item.path, event.ctrlKey || event.metaKey, event.shiftKey);
     scheduleRender();
   });
@@ -1368,12 +1415,19 @@ function showTemporaryStatus(message: string): void {
 function showContextMenu(
   clientX: number,
   clientY: number,
-  item: DirectoryItem,
+  item: DirectoryItem | undefined,
   allowShowInExplorer: boolean
 ): void {
   contextMenuItem = item;
-  elements.showInExplorer.classList.toggle("hidden", !allowShowInExplorer);
-  elements.renameItem.disabled = activeTab().selectedPaths.length !== 1;
+  const itemMenu = Boolean(item);
+  elements.revealSystem.classList.toggle("hidden", !itemMenu);
+  elements.showInExplorer.classList.toggle("hidden", !itemMenu || !allowShowInExplorer);
+  elements.itemMenuSeparator.classList.toggle("hidden", !itemMenu);
+  elements.renameItem.classList.toggle("hidden", !itemMenu);
+  elements.copyItems.classList.toggle("hidden", !itemMenu);
+  elements.cutItems.classList.toggle("hidden", !itemMenu);
+  elements.deleteItems.classList.toggle("hidden", !itemMenu);
+  elements.renameItem.disabled = !itemMenu || activeTab().selectedPaths.length !== 1;
   elements.pasteItems.disabled = clipboardPaths.length === 0;
   elements.contextMenu.classList.remove("hidden");
 
@@ -1384,9 +1438,21 @@ function showContextMenu(
   elements.contextMenu.style.top = `${Math.max(4, top)}px`;
 }
 
+function showViewportContextMenu(event: MouseEvent): void {
+  if ((event.target as HTMLElement).closest(".file-item")) return;
+  event.preventDefault();
+  clearSelection();
+  showContextMenu(event.clientX, event.clientY, undefined, false);
+}
+
 function hideContextMenu(): void {
   contextMenuItem = undefined;
   elements.contextMenu.classList.add("hidden");
+}
+
+function runContextMenuAction(action: () => void): void {
+  action();
+  hideContextMenu();
 }
 
 function showItemInExplorer(item: DirectoryItem): void {
@@ -1456,6 +1522,153 @@ function updateSelection(
     tab.selectionAnchorPath = itemPath;
   }
   tab.selectedPath = itemPath;
+}
+
+function selectAllItems(): void {
+  const tab = activeTab();
+  const paths = tab.filteredItems.map((item) => item.path);
+  tab.selectedPaths = paths;
+  tab.selectedPath = paths[paths.length - 1];
+  tab.selectionAnchorPath = paths[0];
+  clearNativeTextSelection();
+  scheduleRender();
+}
+
+function clearNativeTextSelection(): void {
+  window.getSelection()?.removeAllRanges();
+  requestAnimationFrame(() => window.getSelection()?.removeAllRanges());
+}
+
+function clearSelection(): void {
+  const tab = activeTab();
+  if (!tab.selectedPaths.length) return;
+  tab.selectedPaths = [];
+  tab.selectedPath = undefined;
+  tab.selectionAnchorPath = undefined;
+  scheduleRender();
+}
+
+function clearSelectionFromEmptyClick(event: MouseEvent): void {
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if ((event.target as HTMLElement).closest(".file-item")) return;
+  clearSelection();
+}
+
+function beginSelectionDrag(event: PointerEvent): void {
+  if (event.button !== 0 || isEditableTarget(event.target)) return;
+  if (!(event.target as HTMLElement).closest(".viewport")) return;
+
+  selectionDrag = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    currentX: event.clientX,
+    currentY: event.clientY,
+    additive: event.ctrlKey || event.metaKey,
+    baseSelection: [...activeTab().selectedPaths],
+    active: false
+  };
+}
+
+function updateSelectionDrag(event: PointerEvent): void {
+  if (!selectionDrag || event.pointerId !== selectionDrag.pointerId) return;
+
+  selectionDrag.currentX = event.clientX;
+  selectionDrag.currentY = event.clientY;
+
+  if (!selectionDrag.active) {
+    const distanceX = Math.abs(selectionDrag.currentX - selectionDrag.startX);
+    const distanceY = Math.abs(selectionDrag.currentY - selectionDrag.startY);
+    if (distanceX < 5 && distanceY < 5) return;
+    selectionDrag.active = true;
+    suppressNextItemClick = true;
+    elements.selectionBox.classList.remove("hidden");
+    document.body.classList.add("drag-selecting");
+    clearNativeTextSelection();
+  }
+
+  event.preventDefault();
+  renderSelectionBox(selectionDrag);
+  applySelectionDrag(selectionDrag);
+}
+
+function endSelectionDrag(event: PointerEvent): void {
+  if (!selectionDrag || event.pointerId !== selectionDrag.pointerId) return;
+
+  if (selectionDrag.active) {
+    event.preventDefault();
+    suppressNextItemClick = true;
+  }
+
+  selectionDrag = undefined;
+  elements.selectionBox.classList.add("hidden");
+  document.body.classList.remove("drag-selecting");
+}
+
+function renderSelectionBox(state: SelectionDragState): void {
+  const viewportRect = elements.viewport.getBoundingClientRect();
+  const left = Math.max(0, Math.min(state.startX, state.currentX) - viewportRect.left);
+  const top = Math.max(0, Math.min(state.startY, state.currentY) - viewportRect.top);
+  const right = Math.min(viewportRect.width, Math.max(state.startX, state.currentX) - viewportRect.left);
+  const bottom = Math.min(viewportRect.height, Math.max(state.startY, state.currentY) - viewportRect.top);
+
+  elements.selectionBox.style.left = `${left}px`;
+  elements.selectionBox.style.top = `${top + elements.viewport.scrollTop}px`;
+  elements.selectionBox.style.width = `${Math.max(0, right - left)}px`;
+  elements.selectionBox.style.height = `${Math.max(0, bottom - top)}px`;
+}
+
+function applySelectionDrag(state: SelectionDragState): void {
+  const selectionRect = normalizedRect(state.startX, state.startY, state.currentX, state.currentY);
+  const hitPaths: string[] = [];
+
+  for (const element of Array.from(elements.items.querySelectorAll<HTMLElement>(".file-item"))) {
+    const itemRect = element.getBoundingClientRect();
+    if (rectsIntersect(selectionRect, itemRect)) {
+      const itemPath = element.dataset.path;
+      if (itemPath) hitPaths.push(itemPath);
+    }
+  }
+
+  const tab = activeTab();
+  if (!state.additive && hitPaths.length === 0) {
+    return;
+  }
+  const selected = state.additive ? uniquePaths([...state.baseSelection, ...hitPaths]) : hitPaths;
+  tab.selectedPaths = selected;
+  tab.selectedPath = selected[selected.length - 1];
+  tab.selectionAnchorPath = selected[0];
+  render();
+}
+
+function normalizedRect(left: number, top: number, right: number, bottom: number): DOMRect {
+  return new DOMRect(
+    Math.min(left, right),
+    Math.min(top, bottom),
+    Math.abs(right - left),
+    Math.abs(bottom - top)
+  );
+}
+
+function rectsIntersect(left: DOMRect, right: DOMRect): boolean {
+  return (
+    left.left <= right.right &&
+    left.right >= right.left &&
+    left.top <= right.bottom &&
+    left.bottom >= right.top
+  );
+}
+
+function uniquePaths(paths: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const itemPath of paths) {
+    const normalized = normalizeForComparison(itemPath);
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(itemPath);
+  }
+  return result;
 }
 
 function selectedPaths(): string[] {

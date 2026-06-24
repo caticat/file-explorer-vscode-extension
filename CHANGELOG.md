@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.0.19
+
+- Added `Ctrl+A` / `Cmd+A` to select all currently displayed files, including
+  search results.
+- Added visible-area mouse box selection with optional `Ctrl` / `Cmd` additive
+  selection.
+- Fixed native text selection artifacts when selecting files from the webview.
+- Added empty-area context menu support for paste operations.
+- Fixed context-menu copy, cut, paste, rename, and delete actions to execute
+  reliably without being interrupted by menu dismissal.
+- Refined empty-area click and drag selection behavior to avoid accidental
+  selection loss.
+
 ## 0.0.18
 
 - Fixed the Home button to return to the workspace root that contains the

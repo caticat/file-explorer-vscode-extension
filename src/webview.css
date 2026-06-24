@@ -18,12 +18,17 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
+  user-select: none;
 }
 
 button,
 input {
   font: inherit;
   color: inherit;
+}
+
+input {
+  user-select: text;
 }
 
 button {
@@ -208,6 +213,7 @@ button {
   border-radius: 5px;
   cursor: text;
   scrollbar-width: none;
+  user-select: none;
 }
 
 .address::-webkit-scrollbar {
@@ -332,6 +338,7 @@ button {
   border-bottom: 1px solid var(--vscode-panel-border);
   color: var(--vscode-descriptionForeground);
   font-size: 12px;
+  user-select: none;
 }
 
 .list-header button {
@@ -357,6 +364,10 @@ button {
   outline: none;
 }
 
+.drag-selecting {
+  user-select: none;
+}
+
 .spacer {
   width: 1px;
   pointer-events: none;
@@ -369,6 +380,14 @@ button {
   right: 0;
 }
 
+.selection-box {
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+  border: 1px solid var(--vscode-focusBorder);
+  background: color-mix(in srgb, var(--vscode-focusBorder) 18%, transparent);
+}
+
 .items.grid {
   display: grid;
   align-items: start;
@@ -378,6 +397,7 @@ button {
 .file-item {
   cursor: default;
   color: var(--vscode-foreground);
+  user-select: none;
 }
 
 .file-item.list {
