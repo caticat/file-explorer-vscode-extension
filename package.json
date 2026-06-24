@@ -2,7 +2,7 @@
   "name": "workspace-file-explorer",
   "displayName": "Simple File Explorer",
   "description": "A tabbed, high-performance file explorer for Visual Studio Code.",
-  "version": "0.0.19",
+  "version": "0.1.0",
   "publisher": "panjie039",
   "repository": {
     "type": "git",
@@ -125,8 +125,8 @@
             "editor",
             "sidebar"
           ],
-          "default": "editor",
-          "description": "Choose where Simple File Explorer opens. Use editor for the full editor-tab view, or sidebar for the experimental side bar view."
+          "default": "sidebar",
+          "description": "Choose where Simple File Explorer opens. Use sidebar for the Activity Bar view, or editor for the full editor-tab view."
         }
       }
     }

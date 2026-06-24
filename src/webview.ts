@@ -158,6 +158,36 @@ app.innerHTML = `
           "M1.5 8s2.5-4 6.5-4 6.5 4 6.5 4-2.5 4-6.5 4S1.5 8 1.5 8ZM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"
         )}</button>
       </div>
+      <div class="sidebar-toolbar" role="group" aria-label="Sidebar file explorer actions">
+        <button id="sidebar-back" class="icon-button" title="Back" aria-label="Back">${toolbarIcon(
+          "M10.5 3.5L6 8l4.5 4.5M6.5 8H14"
+        )}</button>
+        <button id="sidebar-up" class="icon-button" title="Up" aria-label="Up">${toolbarIcon(
+          "M8 13V3M4 7l4-4 4 4"
+        )}</button>
+        <button id="sidebar-workspace-home" class="icon-button" title="Back to workspace" aria-label="Back to workspace">${toolbarIcon(
+          "M2 7.5L8 2l6 5.5V14H9.5v-4h-3v4H2V7.5Z"
+        )}</button>
+        <button id="sidebar-refresh" class="icon-button" title="Refresh" aria-label="Refresh">${toolbarIcon(
+          "M13 5V2.5M13 2.5h-2.5M13 2.5A6 6 0 1 0 14 9"
+        )}</button>
+        <button id="sidebar-new-file" class="icon-button" title="New file" aria-label="New file">${toolbarIcon(
+          "M4 1.5h5l3 3V14H4V1.5ZM9 1.5v3h3M8 7v4M6 9h4"
+        )}</button>
+        <button id="sidebar-new-folder" class="icon-button" title="New folder" aria-label="New folder">${toolbarIcon(
+          "M1.5 4h5l1.5 2H14v7H1.5V4ZM8 8v3M6.5 9.5h3"
+        )}</button>
+        <span class="sidebar-toolbar-spacer" aria-hidden="true"></span>
+        <button id="sidebar-list-view" class="icon-button" title="Details view" aria-label="Details view">${toolbarIcon(
+          "M2 3.5h2v2H2v-2ZM6 4.5h8M2 7h2v2H2V7ZM6 8h8M2 10.5h2v2H2v-2ZM6 11.5h8"
+        )}</button>
+        <button id="sidebar-grid-view" class="icon-button" title="Large icons" aria-label="Large icons">${toolbarIcon(
+          "M2 2.5h5v5H2v-5ZM9 2.5h5v5H9v-5ZM2 9h5v5H2V9ZM9 9h5v5H9V9Z"
+        )}</button>
+        <button id="sidebar-toggle-hidden" class="icon-button" title="Show hidden files" aria-label="Show hidden files">${toolbarIcon(
+          "M1.5 8s2.5-4 6.5-4 6.5 4 6.5 4-2.5 4-6.5 4S1.5 8 1.5 8ZM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"
+        )}</button>
+      </div>
     </div>
     <div id="list-header" class="list-header">
       <button data-sort="name">Name</button>
@@ -202,6 +232,15 @@ const elements = {
   listView: button("list-view"),
   gridView: button("grid-view"),
   toggleHidden: button("toggle-hidden"),
+  sidebarBack: button("sidebar-back"),
+  sidebarUp: button("sidebar-up"),
+  sidebarWorkspaceHome: button("sidebar-workspace-home"),
+  sidebarRefresh: button("sidebar-refresh"),
+  sidebarNewFile: button("sidebar-new-file"),
+  sidebarNewFolder: button("sidebar-new-folder"),
+  sidebarListView: button("sidebar-list-view"),
+  sidebarGridView: button("sidebar-grid-view"),
+  sidebarToggleHidden: button("sidebar-toggle-hidden"),
   searchInput: input("search-input"),
   recursiveSearch: button("recursive-search"),
   status: byId("status"),
@@ -237,6 +276,18 @@ elements.newFile.addEventListener("click", () =>
 elements.newFolder.addEventListener("click", () =>
   vscode.postMessage({ command: "createFolder", path: activeTab().path })
 );
+elements.sidebarBack.addEventListener("click", () => moveHistory(-1));
+elements.sidebarUp.addEventListener("click", navigateUp);
+elements.sidebarWorkspaceHome.addEventListener("click", () =>
+  navigate(getWorkspacePath(activeTab().path))
+);
+elements.sidebarRefresh.addEventListener("click", () => loadDirectory(activeTab(), false));
+elements.sidebarNewFile.addEventListener("click", () =>
+  vscode.postMessage({ command: "createFile", path: activeTab().path })
+);
+elements.sidebarNewFolder.addEventListener("click", () =>
+  vscode.postMessage({ command: "createFolder", path: activeTab().path })
+);
 elements.address.addEventListener("click", (event) => {
   if (event.target === elements.address) {
     beginAddressEdit();
@@ -245,13 +296,10 @@ elements.address.addEventListener("click", (event) => {
 elements.address.addEventListener("dblclick", beginAddressEdit);
 elements.listView.addEventListener("click", () => setViewMode("list"));
 elements.gridView.addEventListener("click", () => setViewMode("grid"));
-elements.toggleHidden.addEventListener("click", () => {
-  const tab = activeTab();
-  tab.showHidden = !tab.showHidden;
-  applyLocalFilter(tab);
-  if (tab.recursiveSearch && tab.searchQuery) runSearch();
-  scheduleRender();
-});
+elements.toggleHidden.addEventListener("click", () => toggleHiddenFiles());
+elements.sidebarListView.addEventListener("click", () => setViewMode("list"));
+elements.sidebarGridView.addEventListener("click", () => setViewMode("grid"));
+elements.sidebarToggleHidden.addEventListener("click", () => toggleHiddenFiles());
 elements.searchInput.addEventListener("input", debounce(runSearch, 180));
 elements.recursiveSearch.addEventListener("click", () => {
   preferredRecursiveSearch = !preferredRecursiveSearch;
@@ -873,6 +921,14 @@ function setViewMode(viewMode: ExplorerTab["viewMode"]): void {
   scheduleRender();
 }
 
+function toggleHiddenFiles(): void {
+  const tab = activeTab();
+  tab.showHidden = !tab.showHidden;
+  applyLocalFilter(tab);
+  if (tab.recursiveSearch && tab.searchQuery) runSearch();
+  scheduleRender();
+}
+
 function scheduleRender(): void {
   if (renderScheduled) return;
   renderScheduled = true;
@@ -898,6 +954,10 @@ function render(): void {
   elements.gridView.classList.toggle("active", tab.viewMode === "grid");
   elements.toggleHidden.classList.toggle("active", tab.showHidden);
   elements.toggleHidden.title = tab.showHidden ? "Hide hidden files" : "Show hidden files";
+  elements.sidebarListView.classList.toggle("active", tab.viewMode === "list");
+  elements.sidebarGridView.classList.toggle("active", tab.viewMode === "grid");
+  elements.sidebarToggleHidden.classList.toggle("active", tab.showHidden);
+  elements.sidebarToggleHidden.title = tab.showHidden ? "Hide hidden files" : "Show hidden files";
   for (const header of Array.from(
     elements.listHeader.querySelectorAll<HTMLButtonElement>("button[data-sort]")
   )) {
@@ -1019,6 +1079,9 @@ function renderToolbar(tab: ExplorerTab): void {
   elements.forward.disabled = tab.historyIndex >= tab.history.length - 1;
   elements.up.disabled = dirname(tab.path) === tab.path;
   elements.workspaceHome.disabled = !workspaceRoots.length;
+  elements.sidebarBack.disabled = tab.historyIndex <= 0;
+  elements.sidebarUp.disabled = dirname(tab.path) === tab.path;
+  elements.sidebarWorkspaceHome.disabled = !workspaceRoots.length;
 }
 
 function renderVirtualItems(tab: ExplorerTab): void {

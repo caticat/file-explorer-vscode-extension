@@ -401,7 +401,7 @@ async function openUriInExplorer(
 function getViewLocation(): ViewLocation {
   const value = vscode.workspace
     .getConfiguration("simpleFileExplorer")
-    .get<string>("viewLocation", "editor");
+    .get<string>("viewLocation", "sidebar");
   return value === "sidebar" ? "sidebar" : "editor";
 }
 

@@ -170,6 +170,15 @@ button {
   flex: none;
 }
 
+.sidebar-toolbar {
+  display: none;
+}
+
+.sidebar-toolbar-spacer {
+  flex: 1;
+  min-width: 6px;
+}
+
 .toolbar-divider {
   width: 1px;
   height: 20px;
@@ -519,6 +528,10 @@ button {
 }
 
 body.sidebar-mode .shell {
+  grid-template-rows: 32px auto 24px minmax(0, 1fr) 22px;
+}
+
+body.sidebar-mode .shell.grid-mode {
   grid-template-rows: 32px auto minmax(0, 1fr) 22px;
 }
 
@@ -539,25 +552,23 @@ body.sidebar-mode .toolbar {
   padding: 5px;
 }
 
-body.sidebar-mode .toolbar-divider {
+body.sidebar-mode .toolbar > .toolbar-divider,
+body.sidebar-mode .toolbar > .toolbar-group,
+body.sidebar-mode .toolbar > .view-switch {
   display: none;
 }
 
-body.sidebar-mode .toolbar-group {
+body.sidebar-mode .sidebar-toolbar {
+  display: flex;
+  align-items: center;
   gap: 1px;
-}
-
-body.sidebar-mode .navigation-group {
+  flex: 0 0 100%;
+  min-width: 0;
   order: 1;
 }
 
-body.sidebar-mode .create-group {
-  order: 2;
-}
-
-body.sidebar-mode .view-switch {
-  order: 3;
-  margin-left: auto;
+body.sidebar-mode .sidebar-toolbar .icon-button {
+  flex: 0 0 24px;
 }
 
 body.sidebar-mode .icon-button {
@@ -571,11 +582,11 @@ body.sidebar-mode .search-box {
   flex-basis: 100%;
   min-width: 0;
   height: 28px;
-  order: 10;
+  order: 2;
 }
 
 body.sidebar-mode .search-box {
-  order: 11;
+  order: 3;
 }
 
 body.sidebar-mode .list-header {

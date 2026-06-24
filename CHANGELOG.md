@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.1.0
+
+- Changed the default view location to the Activity Bar sidebar.
+- Added an optional editor-tab mode controlled by
+  `simpleFileExplorer.viewLocation`.
+- Added a dedicated compact toolbar for the sidebar layout.
+- Updated documentation for sidebar/editor opening behavior, mouse box
+  selection, `Ctrl+A` / `Cmd+A`, and context-menu file operations.
+- Updated the bundled usage GIF.
+
 ## 0.0.19
 
 - Added `Ctrl+A` / `Cmd+A` to select all currently displayed files, including

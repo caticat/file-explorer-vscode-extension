@@ -1,7 +1,7 @@
 # Simple File Explorer
 
 A clean-room VS Code extension that provides a Windows-style, tabbed file browser
-inside the editor area.
+for Visual Studio Code.
 
 ![File Explorer extension icon](assets/file-explorer.png)
 
@@ -12,15 +12,17 @@ Use any of these methods:
 - Press `Ctrl+Alt+E` on Windows/Linux or `Cmd+Alt+E` on macOS.
 - Open the Command Palette with `Ctrl+Shift+P` or `F1`, then run
   **Simple File Explorer: Open**.
-- Click the folder icon added to the VS Code status bar.
+- Click the Simple File Explorer icon in the Activity Bar.
+- If `simpleFileExplorer.viewLocation` is set to `editor`, click the folder icon
+  added to the VS Code status bar.
 - In the built-in VS Code Explorer, right-click a file or folder and select
   **Open in Simple File Explorer**.
 
-The shortcut and command focus the existing File Explorer editor when it is
-already open. The status bar button toggles it: open, focus, or close.
-Set `simpleFileExplorer.viewLocation` to `sidebar` to use the experimental side
-bar view instead; in that mode the Activity Bar entry is shown and the status
-bar button is hidden.
+By default, Simple File Explorer opens in the sidebar. Set
+`simpleFileExplorer.viewLocation` to `editor` to use the full editor-tab view
+instead; in editor mode the Activity Bar entry is hidden and the status bar
+button is shown. The command focuses the existing explorer view when it is
+already open.
 
 ## Demo
 
@@ -30,7 +32,8 @@ bar button is hidden.
 
 - Starts at the current VS Code workspace folder.
 - Opens or focuses with `Ctrl+Alt+E` (`Cmd+Alt+E` on macOS).
-- Opens, focuses, or closes from the files icon in the VS Code status bar.
+- Opens in the Activity Bar sidebar by default.
+- Optional editor-tab mode with a status bar button.
 - Opens files and folders from the built-in VS Code Explorer context menu.
 - One-click return to the workspace root.
 - In multi-root workspaces, Home returns to the root containing the current path.
@@ -49,15 +52,18 @@ bar button is hidden.
 - Automatic refresh using debounced, non-recursive watchers for visible tabs.
 - Safe fallback to an existing parent or workspace root when an open directory
   is deleted.
-- New file, new folder, rename, and move-to-trash operations.
-- Multi-selection, copy, cut, and paste.
+- New file, new folder, rename, move-to-trash, and permanent-delete operations.
+- Multi-selection with `Ctrl` / `Cmd` click, `Shift` click, mouse box selection,
+  and `Ctrl+A` / `Cmd+A`.
+- Copy, cut, paste, and empty-area paste from keyboard shortcuts or the context
+  menu.
 - Sortable name, modified-time, and size columns.
 - Per-tab hidden dot-file visibility.
 - Context-menu reveal in the operating system file explorer.
 - Search-result navigation to the containing folder with the item selected.
 - Explorer shortcuts: `Backspace`/`Alt+Up`, `Alt+Left`, `Alt+Right`, `F5`,
-  `Ctrl+L`, `Enter`, `Delete`, `Shift+Delete`, and incremental filename
-  selection by typing.
+  `Ctrl+L`, `Enter`, `F2`, `Delete`, `Shift+Delete`, `Ctrl+A`, and incremental
+  filename selection by typing.
 
 ## Development
 
@@ -74,7 +80,7 @@ Host.
 - `simpleFileExplorer.restoreWorkspaceSession` — restore tab order, current
   paths, and the active tab separately for each workspace. Default: `true`.
 - `simpleFileExplorer.viewLocation` — choose where the explorer opens:
-  `editor` or `sidebar`. Default: `editor`.
+  `sidebar` or `editor`. Default: `sidebar`.
 
 ## Scope
 
@@ -99,9 +105,9 @@ Codicon artwork has separate attribution in `THIRD_PARTY_NOTICES.md`.
 
 # 中文说明
 
-Simple File Explorer 是一个运行在 VS Code 编辑区中的多页签文件浏览器，操作方式
-接近 Windows 资源管理器。它适合在大型项目中按目录浏览和查找文件，避免在
-VS Code 自带的树形 Explorer 中反复展开大量目录。
+Simple File Explorer 是一个运行在 VS Code 中的多页签文件浏览器，操作方式接近
+Windows 资源管理器。它适合在大型项目中按目录浏览和查找文件，避免在 VS Code
+自带的树形 Explorer 中反复展开大量目录。
 
 ## 打开方式
 
@@ -110,14 +116,14 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 - Windows/Linux 使用 `Ctrl+Alt+E`，macOS 使用 `Cmd+Alt+E`。
 - 按 `Ctrl+Shift+P` 或 `F1` 打开命令面板，然后执行
   **Simple File Explorer: Open**。
-- 点击 VS Code 底部状态栏中的文件夹图标。
+- 默认使用侧边栏模式，点击 Activity Bar 中的 Simple File Explorer 图标。
+- 如果将 `simpleFileExplorer.viewLocation` 设置为 `editor`，可以点击 VS Code
+  底部状态栏中的文件夹图标打开、聚焦或关闭。
 - 在 VS Code 自带 Explorer 中右键文件或目录，选择
   **Open in Simple File Explorer**。
 
-快捷键和命令会优先切换到已经打开的 File Explorer。状态栏按钮可以打开、
-聚焦或关闭 File Explorer。
-将 `simpleFileExplorer.viewLocation` 设置为 `sidebar` 后，会使用实验性的侧边栏
-显示模式；此时显示 Activity Bar 入口，并隐藏底部状态栏按钮。
+快捷键和命令会优先切换到已经打开的 File Explorer。默认侧边栏模式会显示
+Activity Bar 入口，并隐藏底部状态栏按钮；切换到 editor 模式后则相反。
 
 ## 主要功能
 
@@ -132,7 +138,9 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 - 递归搜索模式会跨目录、页签和 VS Code 启动保留。
 - 文件名搜索支持基础通配符：`*` 匹配任意字符，`?` 匹配单个字符。
 - 新建、重命名、删除到回收站、永久删除、复制、剪切和粘贴。
-- 多选、按名称/修改时间/大小排序、隐藏点文件切换。
+- 支持 `Ctrl` 点击、`Shift` 点击、鼠标框选和 `Ctrl+A` 全选。
+- 支持右键菜单复制、剪切、粘贴、重命名、删除，以及空白区域粘贴。
+- 按名称/修改时间/大小排序、隐藏点文件切换。
 - 自动刷新当前打开目录，不递归监控整个项目。
 - 当前打开目录被删除时，自动回退到有效父目录或其他工作区根目录。
 - 支持 Windows 和 Linux；macOS 理论兼容但尚未正式测试。
@@ -147,6 +155,7 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 - `Delete`：移动到回收站。
 - `Shift+Delete`：确认后永久删除。
 - `Ctrl+C` / `Ctrl+X` / `Ctrl+V`：复制、剪切和粘贴。
+- `Ctrl+A` / `Cmd+A`：全选当前显示的文件，包括搜索结果。
 - `F5`：刷新当前目录。
 - 在非输入框中直接输入字符：按文件名前缀快速选中。
 
@@ -155,4 +164,4 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 - `simpleFileExplorer.restoreWorkspaceSession`：按工作区恢复页签顺序、
   当前路径和活动页签，默认开启。
 - `simpleFileExplorer.viewLocation`：选择显示位置，可选 `editor` 或 `sidebar`，
-  默认 `editor`。
+  默认 `sidebar`。
