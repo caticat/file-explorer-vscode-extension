@@ -28,6 +28,11 @@ interface WorkspaceSession {
   activeTabIndex: number;
 }
 
+interface ListColumnPreferences {
+  modified: boolean;
+  size: boolean;
+}
+
 interface ExplorerWebviewHost {
   webview: vscode.Webview;
   viewKind: "editor" | "sidebar";
@@ -280,6 +285,9 @@ async function handleMessage(
         if (typeof message.recursiveSearch === "boolean") {
           await context.globalState.update("preferredRecursiveSearch", message.recursiveSearch);
         }
+        if (isListColumnPreferences(message.listColumns)) {
+          await context.globalState.update("preferredListColumns", message.listColumns);
+        }
         break;
       case "saveWorkspaceSession":
         await saveWorkspaceSession(context, message.session);
@@ -479,6 +487,10 @@ async function sendInitialState(
     preferredRecursiveSearch: context.globalState.get<boolean>(
       "preferredRecursiveSearch",
       false
+    ),
+    listColumns: context.globalState.get<ListColumnPreferences>(
+      "preferredListColumns",
+      { modified: true, size: true }
     ),
     restoreWorkspaceSession,
     workspaceSession,
@@ -1101,6 +1113,15 @@ function asStringArray(value: unknown): string[] {
     throw new Error("Expected a string array.");
   }
   return value;
+}
+
+function isListColumnPreferences(value: unknown): value is ListColumnPreferences {
+  if (!value || typeof value !== "object") return false;
+  const columns = value as Record<string, unknown>;
+  return (
+    typeof columns.modified === "boolean" &&
+    typeof columns.size === "boolean"
+  );
 }
 
 function createWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {

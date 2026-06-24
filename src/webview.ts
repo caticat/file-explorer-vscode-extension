@@ -54,6 +54,11 @@ interface WorkspaceSession {
   activeTabIndex: number;
 }
 
+interface ListColumnPreferences {
+  modified: boolean;
+  size: boolean;
+}
+
 const vscode = acquireVsCodeApi();
 const app = document.getElementById("app")!;
 const metadataRequested = new Set<string>();
@@ -65,6 +70,7 @@ let platform = "linux";
 let viewKind: "editor" | "sidebar" = "editor";
 let preferredViewMode: ExplorerTab["viewMode"] = "list";
 let preferredRecursiveSearch = false;
+let listColumns: ListColumnPreferences = { modified: true, size: true };
 let restoreWorkspaceSession = true;
 let tabs: ExplorerTab[] = [];
 let activeTabId = "";
@@ -177,7 +183,6 @@ app.innerHTML = `
         <button id="sidebar-new-folder" class="icon-button" title="New folder" aria-label="New folder">${toolbarIcon(
           "M1.5 4h5l1.5 2H14v7H1.5V4ZM8 8v3M6.5 9.5h3"
         )}</button>
-        <span class="sidebar-toolbar-spacer" aria-hidden="true"></span>
         <button id="sidebar-list-view" class="icon-button" title="Details view" aria-label="Details view">${toolbarIcon(
           "M2 3.5h2v2H2v-2ZM6 4.5h8M2 7h2v2H2V7ZM6 8h8M2 10.5h2v2H2v-2ZM6 11.5h8"
         )}</button>
@@ -214,6 +219,9 @@ app.innerHTML = `
     <button id="cut-items" role="menuitem">Cut</button>
     <button id="paste-items" role="menuitem">Paste</button>
     <button id="delete-items" role="menuitem">Move to Trash</button>
+    <div id="view-menu-separator" class="menu-separator"></div>
+    <button id="toggle-modified-column-menu" role="menuitemcheckbox" aria-checked="true">Show Modified</button>
+    <button id="toggle-size-column-menu" role="menuitemcheckbox" aria-checked="true">Show Size</button>
   </div>
 `;
 
@@ -259,7 +267,10 @@ const elements = {
   copyItems: button("copy-items"),
   cutItems: button("cut-items"),
   pasteItems: button("paste-items"),
-  deleteItems: button("delete-items")
+  deleteItems: button("delete-items"),
+  viewMenuSeparator: byId("view-menu-separator"),
+  toggleModifiedColumnMenu: button("toggle-modified-column-menu"),
+  toggleSizeColumnMenu: button("toggle-size-column-menu")
 };
 
 elements.newTab.addEventListener("click", () => createTab(getWorkspacePath()));
@@ -336,10 +347,16 @@ elements.copyItems.addEventListener("click", () => runContextMenuAction(() => co
 elements.cutItems.addEventListener("click", () => runContextMenuAction(() => copySelection(true)));
 elements.pasteItems.addEventListener("click", () => runContextMenuAction(pasteClipboard));
 elements.deleteItems.addEventListener("click", () => runContextMenuAction(() => deleteSelection(false)));
+elements.toggleModifiedColumnMenu.addEventListener("click", () => runContextMenuAction(() => toggleListColumn("modified")));
+elements.toggleSizeColumnMenu.addEventListener("click", () => runContextMenuAction(() => toggleListColumn("size")));
 elements.listHeader.addEventListener("click", (event) => {
   const target = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-sort]");
   if (!target) return;
   changeSort(target.dataset.sort as ExplorerTab["sortKey"]);
+});
+elements.listHeader.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  showContextMenu(event.clientX, event.clientY, undefined, false);
 });
 elements.viewport.addEventListener("scroll", () => {
   hideContextMenu();
@@ -445,6 +462,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
       preferredViewMode =
         message.preferredViewMode === "grid" ? "grid" : "list";
       preferredRecursiveSearch = message.preferredRecursiveSearch === true;
+      listColumns = normalizeListColumns(message.listColumns);
       restoreWorkspaceSession = message.restoreWorkspaceSession !== false;
       const workspaceSession = isWorkspaceSession(message.workspaceSession)
         ? message.workspaceSession
@@ -921,6 +939,15 @@ function setViewMode(viewMode: ExplorerTab["viewMode"]): void {
   scheduleRender();
 }
 
+function toggleListColumn(column: keyof ListColumnPreferences): void {
+  listColumns = {
+    ...listColumns,
+    [column]: !listColumns[column]
+  };
+  vscode.postMessage({ command: "savePreferences", listColumns });
+  scheduleRender();
+}
+
 function toggleHiddenFiles(): void {
   const tab = activeTab();
   tab.showHidden = !tab.showHidden;
@@ -948,8 +975,12 @@ function render(): void {
   elements.status.textContent = tab.status;
   elements.selectionStatus.textContent =
     tab.selectedPaths.length > 1 ? `${tab.selectedPaths.length.toLocaleString()} selected` : "";
-  elements.listHeader.classList.toggle("hidden", tab.viewMode !== "list");
-  document.querySelector(".shell")?.classList.toggle("grid-mode", tab.viewMode === "grid");
+  const showListHeader = tab.viewMode === "list";
+  elements.listHeader.classList.toggle("hidden", !showListHeader);
+  const shell = document.querySelector(".shell");
+  shell?.classList.toggle("grid-mode", tab.viewMode === "grid");
+  document.body.classList.toggle("hide-modified-column", !listColumns.modified);
+  document.body.classList.toggle("hide-size-column", !listColumns.size);
   elements.listView.classList.toggle("active", tab.viewMode === "list");
   elements.gridView.classList.toggle("active", tab.viewMode === "grid");
   elements.toggleHidden.classList.toggle("active", tab.showHidden);
@@ -958,6 +989,7 @@ function render(): void {
   elements.sidebarGridView.classList.toggle("active", tab.viewMode === "grid");
   elements.sidebarToggleHidden.classList.toggle("active", tab.showHidden);
   elements.sidebarToggleHidden.title = tab.showHidden ? "Hide hidden files" : "Show hidden files";
+  updateListColumnMenu();
   for (const header of Array.from(
     elements.listHeader.querySelectorAll<HTMLButtonElement>("button[data-sort]")
   )) {
@@ -1082,6 +1114,16 @@ function renderToolbar(tab: ExplorerTab): void {
   elements.sidebarBack.disabled = tab.historyIndex <= 0;
   elements.sidebarUp.disabled = dirname(tab.path) === tab.path;
   elements.sidebarWorkspaceHome.disabled = !workspaceRoots.length;
+}
+
+function updateListColumnMenu(): void {
+  setMenuCheckbox(elements.toggleModifiedColumnMenu, listColumns.modified, "Show Modified");
+  setMenuCheckbox(elements.toggleSizeColumnMenu, listColumns.size, "Show Size");
+}
+
+function setMenuCheckbox(buttonElement: HTMLButtonElement, checked: boolean, label: string): void {
+  buttonElement.textContent = `${checked ? "✓ " : ""}${label}`;
+  buttonElement.setAttribute("aria-checked", String(checked));
 }
 
 function renderVirtualItems(tab: ExplorerTab): void {
@@ -1481,6 +1523,14 @@ function isWorkspaceSession(value: unknown): value is WorkspaceSession {
   );
 }
 
+function normalizeListColumns(value: unknown): ListColumnPreferences {
+  const columns = value && typeof value === "object" ? (value as Partial<ListColumnPreferences>) : {};
+  return {
+    modified: columns.modified !== false,
+    size: columns.size !== false
+  };
+}
+
 function showTemporaryStatus(message: string): void {
   const tab = activeTab();
   const previous = tab.status;
@@ -1511,6 +1561,7 @@ function showContextMenu(
   elements.deleteItems.classList.toggle("hidden", !itemMenu);
   elements.renameItem.disabled = !itemMenu || activeTab().selectedPaths.length !== 1;
   elements.pasteItems.disabled = clipboardPaths.length === 0;
+  updateListColumnMenu();
   elements.contextMenu.classList.remove("hidden");
 
   const rect = elements.contextMenu.getBoundingClientRect();
