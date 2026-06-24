@@ -28,8 +28,19 @@ interface WorkspaceSession {
   activeTabIndex: number;
 }
 
+interface ExplorerWebviewHost {
+  webview: vscode.Webview;
+  viewKind: "editor" | "sidebar";
+  dispose?(): void;
+}
+
+type ViewLocation = "editor" | "sidebar";
+
 let activePanel: vscode.WebviewPanel | undefined;
 let activePanelReady = false;
+let activeSidebarView: vscode.WebviewView | undefined;
+let activeSidebarReady = false;
+let statusBarItem: vscode.StatusBarItem | undefined;
 let pendingNavigation:
   | { id: string; path: string; revealPath?: string }
   | undefined;
@@ -38,7 +49,15 @@ const directoryWatchers = new Map<string, fs.FSWatcher>();
 const watcherTimers = new Map<string, NodeJS.Timeout>();
 
 export function activate(context: vscode.ExtensionContext): void {
-  const openExplorer = (): void => {
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("workspaceFileExplorer.sidebar", {
+      resolveWebviewView: (view) => resolveSidebarView(context, view)
+    })
+  );
+
+  const openEditorExplorer = (): void => {
+    flushActiveSessions();
+    closeSidebarIfOpen();
     if (activePanel) {
       activePanel.reveal(vscode.ViewColumn.Active);
       return;
@@ -46,17 +65,49 @@ export function activate(context: vscode.ExtensionContext): void {
     createExplorerPanel(context);
   };
 
-  const toggleExplorer = (): void => {
+  const openSidebarExplorer = async (): Promise<void> => {
+    flushActiveSessions();
+    activePanel?.dispose();
+    await vscode.commands.executeCommand("workbench.view.extension.simpleFileExplorer");
+  };
+
+  const openExplorer = async (): Promise<void> => {
+    if (getViewLocation() === "sidebar") {
+      await openSidebarExplorer();
+      return;
+    }
+    openEditorExplorer();
+  };
+
+  const toggleExplorer = async (): Promise<void> => {
+    if (getViewLocation() === "sidebar") {
+      await openSidebarExplorer();
+      return;
+    }
     if (activePanel?.active) {
       activePanel.dispose();
       return;
     }
-    openExplorer();
+    openEditorExplorer();
+  };
+
+  const toggleViewLocation = async (): Promise<void> => {
+    const nextLocation: ViewLocation = getViewLocation() === "sidebar" ? "editor" : "sidebar";
+    await vscode.workspace
+      .getConfiguration("simpleFileExplorer")
+      .update("viewLocation", nextLocation, vscode.ConfigurationTarget.Global);
+    if (nextLocation === "sidebar") {
+      await openSidebarExplorer();
+    } else {
+      closeSidebarIfOpen();
+      openEditorExplorer();
+    }
   };
 
   context.subscriptions.push(
     vscode.commands.registerCommand("workspaceFileExplorer.open", openExplorer),
     vscode.commands.registerCommand("workspaceFileExplorer.toggle", toggleExplorer),
+    vscode.commands.registerCommand("workspaceFileExplorer.toggleViewLocation", toggleViewLocation),
     vscode.commands.registerCommand(
       "workspaceFileExplorer.openFromExplorer",
       async (uri: vscode.Uri) => {
@@ -65,15 +116,23 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     ),
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (!event.affectsConfiguration("simpleFileExplorer.restoreWorkspaceSession")) return;
-      activePanel?.webview.postMessage({
-        command: "workspaceSessionSettingChanged",
-        enabled: shouldRestoreWorkspaceSession()
-      });
+      if (event.affectsConfiguration("simpleFileExplorer.viewLocation")) {
+        handleViewLocationChanged();
+      }
+      if (event.affectsConfiguration("simpleFileExplorer.restoreWorkspaceSession")) {
+        activePanel?.webview.postMessage({
+          command: "workspaceSessionSettingChanged",
+          enabled: shouldRestoreWorkspaceSession()
+        });
+        activeSidebarView?.webview.postMessage({
+          command: "workspaceSessionSettingChanged",
+          enabled: shouldRestoreWorkspaceSession()
+        });
+      }
     })
   );
 
-  const statusBarItem = vscode.window.createStatusBarItem(
+  statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
     25
   );
@@ -81,7 +140,7 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBarItem.name = "Workspace File Explorer";
   statusBarItem.tooltip = "Toggle Workspace File Explorer";
   statusBarItem.command = "workspaceFileExplorer.toggle";
-  statusBarItem.show();
+  updateStatusBarVisibility();
   context.subscriptions.push(statusBarItem);
 }
 
@@ -129,16 +188,72 @@ function createExplorerPanel(context: vscode.ExtensionContext): void {
     context.subscriptions
   );
 
+  const host = createPanelHost(panel);
+
   panel.webview.onDidReceiveMessage(
-    (message: unknown) => handleMessage(context, panel, message),
+    (message: unknown) => handleMessage(context, host, message),
     undefined,
     context.subscriptions
   );
 }
 
+function resolveSidebarView(
+  context: vscode.ExtensionContext,
+  view: vscode.WebviewView
+): void {
+  activeSidebarView = view;
+  activeSidebarReady = false;
+  view.webview.options = {
+    enableScripts: true,
+    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "dist")]
+  };
+  view.webview.html = createWebviewHtml(view.webview, context.extensionUri);
+
+  const host = createSidebarHost(view);
+  view.onDidDispose(
+    () => {
+      if (activeSidebarView === view) {
+        activeSidebarView = undefined;
+        activeSidebarReady = false;
+      }
+    },
+    undefined,
+    context.subscriptions
+  );
+  view.onDidChangeVisibility(
+    () => {
+      if (!view.visible) {
+        activeSidebarReady = false;
+      }
+    },
+    undefined,
+    context.subscriptions
+  );
+  view.webview.onDidReceiveMessage(
+    (message: unknown) => handleMessage(context, host, message),
+    undefined,
+    context.subscriptions
+  );
+}
+
+function createPanelHost(panel: vscode.WebviewPanel): ExplorerWebviewHost {
+  return {
+    webview: panel.webview,
+    viewKind: "editor",
+    dispose: () => panel.dispose()
+  };
+}
+
+function createSidebarHost(view: vscode.WebviewView): ExplorerWebviewHost {
+  return {
+    webview: view.webview,
+    viewKind: "sidebar"
+  };
+}
+
 async function handleMessage(
   context: vscode.ExtensionContext,
-  panel: vscode.WebviewPanel,
+  panel: ExplorerWebviewHost,
   rawMessage: unknown
 ): Promise<void> {
   if (!rawMessage || typeof rawMessage !== "object") {
@@ -151,7 +266,11 @@ async function handleMessage(
     switch (message.command) {
       case "ready":
         await sendInitialState(panel, context);
-        activePanelReady = true;
+        if (panel.viewKind === "editor") {
+          activePanelReady = true;
+        } else {
+          activeSidebarReady = true;
+        }
         await sendPendingNavigation(panel);
         break;
       case "savePreferences":
@@ -218,7 +337,11 @@ async function handleMessage(
         );
         break;
       case "closePanel":
-        panel.dispose();
+        if (panel.dispose) {
+          panel.dispose();
+        } else {
+          await vscode.commands.executeCommand("workbench.action.closeSidebar");
+        }
         break;
       case "search":
         await searchRecursively(
@@ -255,18 +378,64 @@ async function openUriInExplorer(
         revealPath: uri.fsPath
       };
 
+  if (getViewLocation() === "sidebar") {
+    activePanel?.dispose();
+    await vscode.commands.executeCommand("workbench.view.extension.simpleFileExplorer");
+    if (activeSidebarReady && activeSidebarView) {
+      await sendPendingNavigation(createSidebarHost(activeSidebarView));
+    }
+    return;
+  }
+
+  closeSidebarIfOpen();
   if (!activePanel) {
     createExplorerPanel(context);
     return;
   }
-
   activePanel.reveal(vscode.ViewColumn.Active);
   if (activePanelReady) {
-    await sendPendingNavigation(activePanel);
+    await sendPendingNavigation(createPanelHost(activePanel));
   }
 }
 
-async function sendPendingNavigation(panel: vscode.WebviewPanel): Promise<void> {
+function getViewLocation(): ViewLocation {
+  const value = vscode.workspace
+    .getConfiguration("simpleFileExplorer")
+    .get<string>("viewLocation", "editor");
+  return value === "sidebar" ? "sidebar" : "editor";
+}
+
+function handleViewLocationChanged(): void {
+  flushActiveSessions();
+  updateStatusBarVisibility();
+  if (getViewLocation() === "sidebar") {
+    activePanel?.dispose();
+  } else {
+    closeSidebarIfOpen();
+  }
+}
+
+function updateStatusBarVisibility(): void {
+  if (!statusBarItem) return;
+  if (getViewLocation() === "sidebar") {
+    statusBarItem.hide();
+  } else {
+    statusBarItem.show();
+  }
+}
+
+function closeSidebarIfOpen(): void {
+  if (!activeSidebarView) return;
+  void vscode.commands.executeCommand("workbench.action.closeSidebar");
+  activeSidebarReady = false;
+}
+
+function flushActiveSessions(): void {
+  activePanel?.webview.postMessage({ command: "flushSession" });
+  activeSidebarView?.webview.postMessage({ command: "flushSession" });
+}
+
+async function sendPendingNavigation(panel: ExplorerWebviewHost): Promise<void> {
   if (!pendingNavigation) return;
   const navigation = pendingNavigation;
   await panel.webview.postMessage({
@@ -278,7 +447,7 @@ async function sendPendingNavigation(panel: vscode.WebviewPanel): Promise<void> 
 }
 
 async function sendInitialState(
-  panel: vscode.WebviewPanel,
+  panel: ExplorerWebviewHost,
   context: vscode.ExtensionContext
 ): Promise<void> {
   const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map((folder) => ({
@@ -312,7 +481,8 @@ async function sendInitialState(
       false
     ),
     restoreWorkspaceSession,
-    workspaceSession
+    workspaceSession,
+    viewKind: panel.viewKind
   });
 }
 
@@ -385,7 +555,7 @@ async function saveWorkspaceSession(
 }
 
 async function streamDirectory(
-  panel: vscode.WebviewPanel,
+  panel: ExplorerWebviewHost,
   requestId: string,
   requestedPath: string
 ): Promise<void> {
@@ -456,7 +626,7 @@ async function streamDirectory(
 }
 
 async function readDirectoryWithRecovery(
-  panel: vscode.WebviewPanel,
+  panel: ExplorerWebviewHost,
   requestId: string,
   requestedPath: string
 ): Promise<void> {
@@ -525,7 +695,7 @@ async function isExistingDirectory(directoryPath: string): Promise<boolean> {
   }
 }
 
-async function loadMetadata(panel: vscode.WebviewPanel, paths: string[]): Promise<void> {
+async function loadMetadata(panel: ExplorerWebviewHost, paths: string[]): Promise<void> {
   const uniquePaths = [...new Set(paths)].slice(0, 100);
   const results: Array<{ path: string; size?: number; modified?: number }> = [];
   const concurrency = 16;
@@ -553,7 +723,7 @@ async function loadMetadata(panel: vscode.WebviewPanel, paths: string[]): Promis
 }
 
 async function searchRecursively(
-  panel: vscode.WebviewPanel,
+  panel: ExplorerWebviewHost,
   requestId: string,
   requestedPath: string,
   rawQuery: string,
@@ -676,7 +846,7 @@ function createNameMatcher(query: string): (name: string) => boolean {
   return (name) => regex.test(name);
 }
 
-function updateDirectoryWatchers(panel: vscode.WebviewPanel, paths: string[]): void {
+function updateDirectoryWatchers(panel: ExplorerWebviewHost, paths: string[]): void {
   const wanted = new Set(paths.map((item) => path.resolve(item)));
 
   for (const [watchedPath, watcher] of directoryWatchers) {
@@ -723,7 +893,7 @@ function disposeDirectoryWatchers(): void {
 }
 
 async function createItem(
-  panel: vscode.WebviewPanel,
+  panel: ExplorerWebviewHost,
   directoryPath: string,
   isDirectory: boolean
 ): Promise<void> {
@@ -743,7 +913,7 @@ async function createItem(
   await panel.webview.postMessage({ command: "operationComplete", path: directoryPath, revealPath: target });
 }
 
-async function renameItem(panel: vscode.WebviewPanel, itemPath: string): Promise<void> {
+async function renameItem(panel: ExplorerWebviewHost, itemPath: string): Promise<void> {
   const oldName = path.basename(itemPath);
   const name = await vscode.window.showInputBox({
     title: "Rename",
@@ -763,7 +933,7 @@ async function renameItem(panel: vscode.WebviewPanel, itemPath: string): Promise
 }
 
 async function deleteItems(
-  panel: vscode.WebviewPanel,
+  panel: ExplorerWebviewHost,
   paths: string[],
   permanent: boolean
 ): Promise<void> {
@@ -789,7 +959,7 @@ async function deleteItems(
 }
 
 async function pasteItems(
-  panel: vscode.WebviewPanel,
+  panel: ExplorerWebviewHost,
   paths: string[],
   destination: string,
   cut: boolean
@@ -862,7 +1032,7 @@ function validateFileName(value: string): string | undefined {
 }
 
 async function validateDirectory(
-  panel: vscode.WebviewPanel,
+  panel: ExplorerWebviewHost,
   requestId: string,
   requestedPath: string
 ): Promise<void> {

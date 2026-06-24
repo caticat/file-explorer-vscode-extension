@@ -18,6 +18,9 @@ Use any of these methods:
 
 The shortcut and command focus the existing File Explorer editor when it is
 already open. The status bar button toggles it: open, focus, or close.
+Set `simpleFileExplorer.viewLocation` to `sidebar` to use the experimental side
+bar view instead; in that mode the Activity Bar entry is shown and the status
+bar button is hidden.
 
 ## Demo
 
@@ -70,6 +73,8 @@ Host.
 
 - `simpleFileExplorer.restoreWorkspaceSession` — restore tab order, current
   paths, and the active tab separately for each workspace. Default: `true`.
+- `simpleFileExplorer.viewLocation` — choose where the explorer opens:
+  `editor` or `sidebar`. Default: `editor`.
 
 ## Scope
 
@@ -111,6 +116,8 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 
 快捷键和命令会优先切换到已经打开的 File Explorer。状态栏按钮可以打开、
 聚焦或关闭 File Explorer。
+将 `simpleFileExplorer.viewLocation` 设置为 `sidebar` 后，会使用实验性的侧边栏
+显示模式；此时显示 Activity Bar 入口，并隐藏底部状态栏按钮。
 
 ## 主要功能
 
@@ -147,3 +154,5 @@ VS Code 自带的树形 Explorer 中反复展开大量目录。
 
 - `simpleFileExplorer.restoreWorkspaceSession`：按工作区恢复页签顺序、
   当前路径和活动页签，默认开启。
+- `simpleFileExplorer.viewLocation`：选择显示位置，可选 `editor` 或 `sidebar`，
+  默认 `editor`。

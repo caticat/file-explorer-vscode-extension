@@ -62,6 +62,7 @@ let workspaceRoots: WorkspaceRoot[] = [];
 let initialPath = "";
 let pathSeparator = "/";
 let platform = "linux";
+let viewKind: "editor" | "sidebar" = "editor";
 let preferredViewMode: ExplorerTab["viewMode"] = "list";
 let preferredRecursiveSearch = false;
 let restoreWorkspaceSession = true;
@@ -391,6 +392,8 @@ function handleHostMessage(message: Record<string, unknown>): void {
       workspaceRoots = message.workspaceRoots as WorkspaceRoot[];
       pathSeparator = String(message.pathSeparator);
       platform = String(message.platform);
+      viewKind = message.viewKind === "sidebar" ? "sidebar" : "editor";
+      document.body.classList.toggle("sidebar-mode", viewKind === "sidebar");
       preferredViewMode =
         message.preferredViewMode === "grid" ? "grid" : "list";
       preferredRecursiveSearch = message.preferredRecursiveSearch === true;
@@ -419,6 +422,10 @@ function handleHostMessage(message: Record<string, unknown>): void {
       } else {
         window.clearTimeout(sessionSaveTimer);
       }
+      break;
+    }
+    case "flushSession": {
+      flushSavedSession();
       break;
     }
     case "directoryStart": {
@@ -1027,14 +1034,14 @@ function renderVirtualItems(tab: ExplorerTab): void {
   let rowHeight = 34;
 
   if (tab.viewMode === "list") {
-    rowHeight = 34;
+    rowHeight = listRowHeight();
     totalHeight = data.length * rowHeight;
     startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
     endIndex = Math.min(data.length, Math.ceil((scrollTop + viewportHeight) / rowHeight) + overscan);
     top = startIndex * rowHeight;
   } else {
-    const itemWidth = 128;
-    rowHeight = 112;
+    const itemWidth = gridItemWidth();
+    rowHeight = gridRowHeight();
     columns = Math.max(1, Math.floor(elements.viewport.clientWidth / itemWidth));
     const rowCount = Math.ceil(data.length / columns);
     totalHeight = rowCount * rowHeight;
@@ -1068,6 +1075,18 @@ function renderVirtualItems(tab: ExplorerTab): void {
   const showEmpty = !tab.loading && data.length === 0;
   elements.empty.classList.toggle("hidden", !showEmpty);
   elements.empty.textContent = tab.searchQuery ? "No matching files." : "This folder is empty.";
+}
+
+function listRowHeight(): number {
+  return viewKind === "sidebar" ? 30 : 34;
+}
+
+function gridItemWidth(): number {
+  return viewKind === "sidebar" ? 104 : 128;
+}
+
+function gridRowHeight(): number {
+  return viewKind === "sidebar" ? 92 : 112;
 }
 
 function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
@@ -1355,7 +1374,7 @@ function saveState(): void {
   window.clearTimeout(sessionSaveTimer);
   sessionSaveTimer = window.setTimeout(() => {
     flushSavedSession();
-  }, 300);
+  }, 50);
 }
 
 function clearSavedSession(): void {
@@ -1752,13 +1771,13 @@ function revealSelectedItem(tab: ExplorerTab): void {
 
   let targetScrollTop: number;
   if (tab.viewMode === "list") {
-    targetScrollTop = index * 34;
+    targetScrollTop = index * listRowHeight();
   } else {
-    const columns = Math.max(1, Math.floor(elements.viewport.clientWidth / 128));
-    targetScrollTop = Math.floor(index / columns) * 112;
+    const columns = Math.max(1, Math.floor(elements.viewport.clientWidth / gridItemWidth()));
+    targetScrollTop = Math.floor(index / columns) * gridRowHeight();
   }
 
-  const rowHeight = tab.viewMode === "list" ? 34 : 112;
+  const rowHeight = tab.viewMode === "list" ? listRowHeight() : gridRowHeight();
   targetScrollTop = Math.max(
     0,
     targetScrollTop - Math.max(0, (elements.viewport.clientHeight - rowHeight) / 2)

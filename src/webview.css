@@ -518,6 +518,93 @@ button {
   cursor: default;
 }
 
+body.sidebar-mode .shell {
+  grid-template-rows: 32px auto minmax(0, 1fr) 22px;
+}
+
+body.sidebar-mode .tabs-bar {
+  padding: 0 4px;
+}
+
+body.sidebar-mode .tab {
+  min-width: 88px;
+  max-width: 160px;
+  padding: 0 7px;
+}
+
+body.sidebar-mode .toolbar {
+  flex-wrap: wrap;
+  align-content: start;
+  gap: 4px;
+  padding: 5px;
+}
+
+body.sidebar-mode .toolbar-divider {
+  display: none;
+}
+
+body.sidebar-mode .toolbar-group {
+  gap: 1px;
+}
+
+body.sidebar-mode .navigation-group {
+  order: 1;
+}
+
+body.sidebar-mode .create-group {
+  order: 2;
+}
+
+body.sidebar-mode .view-switch {
+  order: 3;
+  margin-left: auto;
+}
+
+body.sidebar-mode .icon-button {
+  width: 24px;
+  height: 24px;
+}
+
+body.sidebar-mode .address,
+body.sidebar-mode .address-input,
+body.sidebar-mode .search-box {
+  flex-basis: 100%;
+  min-width: 0;
+  height: 28px;
+  order: 10;
+}
+
+body.sidebar-mode .search-box {
+  order: 11;
+}
+
+body.sidebar-mode .list-header {
+  grid-template-columns: minmax(120px, 1fr) minmax(96px, 132px) minmax(56px, 78px);
+  min-height: 24px;
+  padding: 0 8px;
+}
+
+body.sidebar-mode .file-item.list {
+  grid-template-columns: 24px minmax(96px, 1fr) minmax(96px, 132px) minmax(56px, 78px);
+  height: 30px;
+  padding: 0 8px;
+}
+
+body.sidebar-mode .file-item.grid {
+  height: 92px;
+  min-width: 104px;
+  padding: 6px;
+}
+
+body.sidebar-mode .grid .file-icon {
+  width: 34px;
+  height: 34px;
+}
+
+body.sidebar-mode .footer-bar {
+  padding: 0 8px;
+}
+
 .context-menu button:disabled:hover {
   color: inherit;
   background: transparent;

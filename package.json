@@ -38,8 +38,10 @@
   "activationEvents": [
     "onStartupFinished",
     "onCommand:workspaceFileExplorer.open",
+    "onCommand:workspaceFileExplorer.toggleViewLocation",
     "onCommand:workspaceFileExplorer.toggle",
-    "onCommand:workspaceFileExplorer.openFromExplorer"
+    "onCommand:workspaceFileExplorer.openFromExplorer",
+    "onView:workspaceFileExplorer.sidebar"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -53,11 +55,34 @@
         "title": "Simple File Explorer: Toggle"
       },
       {
+        "command": "workspaceFileExplorer.toggleViewLocation",
+        "title": "Simple File Explorer: Toggle View Location"
+      },
+      {
         "command": "workspaceFileExplorer.openFromExplorer",
         "title": "Open in Simple File Explorer",
         "icon": "$(folder-opened)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "simpleFileExplorer",
+          "title": "Simple File Explorer",
+          "icon": "$(folder-opened)"
+        }
+      ]
+    },
+    "views": {
+      "simpleFileExplorer": [
+        {
+          "id": "workspaceFileExplorer.sidebar",
+          "name": "File Explorer",
+          "type": "webview",
+          "when": "config.simpleFileExplorer.viewLocation == sidebar"
+        }
+      ]
+    },
     "keybindings": [
       {
         "command": "workspaceFileExplorer.open",
@@ -69,6 +94,9 @@
       "commandPalette": [
         {
           "command": "workspaceFileExplorer.open"
+        },
+        {
+          "command": "workspaceFileExplorer.toggleViewLocation"
         },
         {
           "command": "workspaceFileExplorer.openFromExplorer",
@@ -90,6 +118,15 @@
           "type": "boolean",
           "default": true,
           "description": "Restore tab order, current paths, and the active tab separately for each VS Code workspace."
+        },
+        "simpleFileExplorer.viewLocation": {
+          "type": "string",
+          "enum": [
+            "editor",
+            "sidebar"
+          ],
+          "default": "editor",
+          "description": "Choose where Simple File Explorer opens. Use editor for the full editor-tab view, or sidebar for the experimental side bar view."
         }
       }
     }
