@@ -40,6 +40,8 @@ already open.
 - Multiple independent file tabs.
 - Drag-and-drop tab ordering.
 - Sidebar tabs automatically shrink to keep the new-tab button reachable.
+- Sidebar toolbar actions are grouped, with display controls visually separated
+  from navigation and create actions.
 - Optional workspace-specific restoration of tab order, paths, and active tab.
 - One initial tab per root folder in multi-root workspaces without saved state.
 - Back, forward, up, refresh, breadcrumbs, and manual path entry (`Ctrl+L`).
@@ -139,6 +141,7 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 多根工作区中，首页按钮会返回当前路径所属的工作区根目录。
 - 支持拖动页签调整顺序。
 - 侧边栏页签会自动压缩宽度，保持新建页签按钮可用。
+- 侧边栏工具栏按导航、新建和显示控制分组，列表/图标等显示选项会单独区分。
 - 可按工作区恢复页签顺序、当前路径和活动页签。
 - 多根工作区在没有保存状态时，会为每个根目录创建一个初始页签。
 - 详细信息和大图标两种视图，并在所有页签和下次启动时继承视图设置。

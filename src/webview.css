@@ -603,10 +603,32 @@ body.sidebar-mode .toolbar > .view-switch {
 body.sidebar-mode .sidebar-toolbar {
   display: flex;
   align-items: center;
-  gap: 1px;
+  gap: 4px;
   flex: 0 0 100%;
   min-width: 0;
   order: 1;
+}
+
+body.sidebar-mode .sidebar-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: none;
+}
+
+body.sidebar-mode .sidebar-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  flex: none;
+  background: var(--vscode-panel-border);
+  opacity: 0.8;
+}
+
+body.sidebar-mode .sidebar-view-switch {
+  padding: 1px;
+  border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+  border-radius: 5px;
+  background: var(--vscode-input-background);
 }
 
 body.sidebar-mode .sidebar-toolbar .icon-button {
@@ -701,6 +723,12 @@ body.sidebar-mode .footer-bar {
 }
 
 .view-switch .icon-button.active {
+  outline: none;
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+
+body.sidebar-mode .sidebar-view-switch .icon-button.active {
   outline: none;
   color: var(--vscode-button-foreground);
   background: var(--vscode-button-background);

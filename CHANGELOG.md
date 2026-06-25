@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.1.2
+
+- Grouped sidebar toolbar actions into navigation, create, and display
+  sections for clearer separation in narrow sidebar layouts.
+- Added a bordered background around the sidebar display controls so details,
+  large-icon, and hidden-file choices match the editor toolbar styling.
+- Updated the bundled usage GIF.
+
 ## 0.1.1
 
 - Changed the default view location back to the editor area while keeping the

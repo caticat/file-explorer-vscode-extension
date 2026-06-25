@@ -174,33 +174,41 @@ app.innerHTML = `
         )}</button>
       </div>
       <div class="sidebar-toolbar" role="group" aria-label="Sidebar file explorer actions">
-        <button id="sidebar-back" class="icon-button" title="Back" aria-label="Back">${toolbarIcon(
-          "M10.5 3.5L6 8l4.5 4.5M6.5 8H14"
-        )}</button>
-        <button id="sidebar-up" class="icon-button" title="Up" aria-label="Up">${toolbarIcon(
-          "M8 13V3M4 7l4-4 4 4"
-        )}</button>
-        <button id="sidebar-workspace-home" class="icon-button" title="Back to workspace" aria-label="Back to workspace">${toolbarIcon(
-          "M2 7.5L8 2l6 5.5V14H9.5v-4h-3v4H2V7.5Z"
-        )}</button>
-        <button id="sidebar-refresh" class="icon-button" title="Refresh" aria-label="Refresh">${toolbarIcon(
-          "M13 5V2.5M13 2.5h-2.5M13 2.5A6 6 0 1 0 14 9"
-        )}</button>
-        <button id="sidebar-new-file" class="icon-button" title="New file" aria-label="New file">${toolbarIcon(
-          "M4 1.5h5l3 3V14H4V1.5ZM9 1.5v3h3M8 7v4M6 9h4"
-        )}</button>
-        <button id="sidebar-new-folder" class="icon-button" title="New folder" aria-label="New folder">${toolbarIcon(
-          "M1.5 4h5l1.5 2H14v7H1.5V4ZM8 8v3M6.5 9.5h3"
-        )}</button>
-        <button id="sidebar-list-view" class="icon-button" title="Details view" aria-label="Details view">${toolbarIcon(
-          "M2 3.5h2v2H2v-2ZM6 4.5h8M2 7h2v2H2V7ZM6 8h8M2 10.5h2v2H2v-2ZM6 11.5h8"
-        )}</button>
-        <button id="sidebar-grid-view" class="icon-button" title="Large icons" aria-label="Large icons">${toolbarIcon(
-          "M2 2.5h5v5H2v-5ZM9 2.5h5v5H9v-5ZM2 9h5v5H2V9ZM9 9h5v5H9V9Z"
-        )}</button>
-        <button id="sidebar-toggle-hidden" class="icon-button" title="Show hidden files" aria-label="Show hidden files">${toolbarIcon(
-          "M1.5 8s2.5-4 6.5-4 6.5 4 6.5 4-2.5 4-6.5 4S1.5 8 1.5 8ZM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"
-        )}</button>
+        <div class="sidebar-toolbar-group sidebar-navigation-group">
+          <button id="sidebar-back" class="icon-button" title="Back" aria-label="Back">${toolbarIcon(
+            "M10.5 3.5L6 8l4.5 4.5M6.5 8H14"
+          )}</button>
+          <button id="sidebar-up" class="icon-button" title="Up" aria-label="Up">${toolbarIcon(
+            "M8 13V3M4 7l4-4 4 4"
+          )}</button>
+          <button id="sidebar-workspace-home" class="icon-button" title="Back to workspace" aria-label="Back to workspace">${toolbarIcon(
+            "M2 7.5L8 2l6 5.5V14H9.5v-4h-3v4H2V7.5Z"
+          )}</button>
+          <button id="sidebar-refresh" class="icon-button" title="Refresh" aria-label="Refresh">${toolbarIcon(
+            "M13 5V2.5M13 2.5h-2.5M13 2.5A6 6 0 1 0 14 9"
+          )}</button>
+        </div>
+        <span class="sidebar-toolbar-divider" aria-hidden="true"></span>
+        <div class="sidebar-toolbar-group sidebar-create-group">
+          <button id="sidebar-new-file" class="icon-button" title="New file" aria-label="New file">${toolbarIcon(
+            "M4 1.5h5l3 3V14H4V1.5ZM9 1.5v3h3M8 7v4M6 9h4"
+          )}</button>
+          <button id="sidebar-new-folder" class="icon-button" title="New folder" aria-label="New folder">${toolbarIcon(
+            "M1.5 4h5l1.5 2H14v7H1.5V4ZM8 8v3M6.5 9.5h3"
+          )}</button>
+        </div>
+        <span class="sidebar-toolbar-divider" aria-hidden="true"></span>
+        <div class="sidebar-toolbar-group sidebar-view-switch" role="group" aria-label="Sidebar display options">
+          <button id="sidebar-list-view" class="icon-button" title="Details view" aria-label="Details view">${toolbarIcon(
+            "M2 3.5h2v2H2v-2ZM6 4.5h8M2 7h2v2H2V7ZM6 8h8M2 10.5h2v2H2v-2ZM6 11.5h8"
+          )}</button>
+          <button id="sidebar-grid-view" class="icon-button" title="Large icons" aria-label="Large icons">${toolbarIcon(
+            "M2 2.5h5v5H2v-5ZM9 2.5h5v5H9v-5ZM2 9h5v5H2V9ZM9 9h5v5H9V9Z"
+          )}</button>
+          <button id="sidebar-toggle-hidden" class="icon-button" title="Show hidden files" aria-label="Show hidden files">${toolbarIcon(
+            "M1.5 8s2.5-4 6.5-4 6.5 4 6.5 4-2.5 4-6.5 4S1.5 8 1.5 8ZM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"
+          )}</button>
+        </div>
       </div>
     </div>
     <div id="list-header" class="list-header">
