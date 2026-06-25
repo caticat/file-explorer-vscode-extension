@@ -59,6 +59,14 @@ interface ListColumnPreferences {
   size: boolean;
 }
 
+interface IconThemePayload {
+  file?: string;
+  folder?: string;
+  fileExtensions: Record<string, string>;
+  fileNames: Record<string, string>;
+  folderNames: Record<string, string>;
+}
+
 const vscode = acquireVsCodeApi();
 const app = document.getElementById("app")!;
 const metadataRequested = new Set<string>();
@@ -71,6 +79,7 @@ let viewKind: "editor" | "sidebar" = "editor";
 let preferredViewMode: ExplorerTab["viewMode"] = "list";
 let preferredRecursiveSearch = false;
 let listColumns: ListColumnPreferences = { modified: true, size: true };
+let iconTheme: IconThemePayload | undefined;
 let restoreWorkspaceSession = true;
 let tabs: ExplorerTab[] = [];
 let activeTabId = "";
@@ -463,11 +472,17 @@ function handleHostMessage(message: Record<string, unknown>): void {
         message.preferredViewMode === "grid" ? "grid" : "list";
       preferredRecursiveSearch = message.preferredRecursiveSearch === true;
       listColumns = normalizeListColumns(message.listColumns);
+      iconTheme = normalizeIconTheme(message.iconTheme);
       restoreWorkspaceSession = message.restoreWorkspaceSession !== false;
       const workspaceSession = isWorkspaceSession(message.workspaceSession)
         ? message.workspaceSession
         : undefined;
       restoreOrCreateInitialTab(workspaceSession);
+      break;
+    }
+    case "iconThemeChanged": {
+      iconTheme = normalizeIconTheme(message.iconTheme);
+      scheduleRender();
       break;
     }
     case "navigateExternal": {
@@ -1403,7 +1418,25 @@ function basename(value: string): string {
   return normalized.slice(index + 1);
 }
 
-function createFileIcon(item: DirectoryItem): SVGSVGElement {
+function createFileIcon(item: DirectoryItem): Element {
+  const themedIcon = themedIconFor(item);
+  if (themedIcon) {
+    const image = document.createElement("img");
+    image.className = "file-icon themed-file-icon";
+    image.src = themedIcon;
+    image.alt = "";
+    image.setAttribute("aria-hidden", "true");
+    image.draggable = false;
+    image.addEventListener("error", () => {
+      image.replaceWith(createFallbackFileIcon(item));
+    }, { once: true });
+    return image;
+  }
+
+  return createFallbackFileIcon(item);
+}
+
+function createFallbackFileIcon(item: DirectoryItem): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("class", "file-icon");
   svg.setAttribute("viewBox", "0 0 16 16");
@@ -1416,6 +1449,35 @@ function createFileIcon(item: DirectoryItem): SVGSVGElement {
   }
 
   return svg;
+}
+
+function themedIconFor(item: DirectoryItem): string | undefined {
+  if (!iconTheme) return undefined;
+
+  const name = item.name.toLocaleLowerCase();
+  if (item.isDirectory) {
+    return iconTheme.folderNames[name] ?? iconTheme.folder;
+  }
+
+  const fileNameIcon = iconTheme.fileNames[name];
+  if (fileNameIcon) return fileNameIcon;
+
+  for (const extension of extensionsForIconLookup(name)) {
+    const extensionIcon = iconTheme.fileExtensions[extension];
+    if (extensionIcon) return extensionIcon;
+  }
+
+  return iconTheme.file;
+}
+
+function extensionsForIconLookup(name: string): string[] {
+  const parts = name.split(".");
+  if (parts.length <= 1) return [];
+  const extensions: string[] = [];
+  for (let index = 1; index < parts.length; index += 1) {
+    extensions.push(parts.slice(index).join("."));
+  }
+  return extensions;
 }
 
 function iconPathsFor(item: DirectoryItem): string[] {
@@ -1529,6 +1591,29 @@ function normalizeListColumns(value: unknown): ListColumnPreferences {
     modified: columns.modified !== false,
     size: columns.size !== false
   };
+}
+
+function normalizeIconTheme(value: unknown): IconThemePayload | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const source = value as Partial<IconThemePayload>;
+  return {
+    file: typeof source.file === "string" ? source.file : undefined,
+    folder: typeof source.folder === "string" ? source.folder : undefined,
+    fileExtensions: normalizeStringMap(source.fileExtensions),
+    fileNames: normalizeStringMap(source.fileNames),
+    folderNames: normalizeStringMap(source.folderNames)
+  };
+}
+
+function normalizeStringMap(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result: Record<string, string> = {};
+  for (const [key, mapValue] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof mapValue === "string") {
+      result[key.toLocaleLowerCase()] = mapValue;
+    }
+  }
+  return result;
 }
 
 function showTemporaryStatus(message: string): void {

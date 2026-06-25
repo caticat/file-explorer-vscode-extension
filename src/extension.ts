@@ -33,6 +33,14 @@ interface ListColumnPreferences {
   size: boolean;
 }
 
+interface IconThemePayload {
+  file?: string;
+  folder?: string;
+  fileExtensions: Record<string, string>;
+  fileNames: Record<string, string>;
+  folderNames: Record<string, string>;
+}
+
 interface ExplorerWebviewHost {
   webview: vscode.Webview;
   viewKind: "editor" | "sidebar";
@@ -134,6 +142,12 @@ export function activate(context: vscode.ExtensionContext): void {
           enabled: shouldRestoreWorkspaceSession()
         });
       }
+      if (
+        event.affectsConfiguration("workbench.iconTheme") ||
+        event.affectsConfiguration("simpleFileExplorer.iconThemeMode")
+      ) {
+        void refreshIconThemeForActiveWebviews();
+      }
     })
   );
 
@@ -158,7 +172,7 @@ function createExplorerPanel(context: vscode.ExtensionContext): void {
     {
       enableScripts: true,
       retainContextWhenHidden: false,
-      localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "dist")]
+      localResourceRoots: webviewLocalResourceRoots(context)
     }
   );
 
@@ -202,6 +216,17 @@ function createExplorerPanel(context: vscode.ExtensionContext): void {
   );
 }
 
+function webviewLocalResourceRoots(context: vscode.ExtensionContext): vscode.Uri[] {
+  const roots = [vscode.Uri.joinPath(context.extensionUri, "dist")];
+  for (const extension of vscode.extensions.all) {
+    const contributes = asRecord((extension.packageJSON as Record<string, unknown>).contributes);
+    if (Array.isArray(contributes?.iconThemes)) {
+      roots.push(extension.extensionUri);
+    }
+  }
+  return roots;
+}
+
 function resolveSidebarView(
   context: vscode.ExtensionContext,
   view: vscode.WebviewView
@@ -210,7 +235,7 @@ function resolveSidebarView(
   activeSidebarReady = false;
   view.webview.options = {
     enableScripts: true,
-    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "dist")]
+    localResourceRoots: webviewLocalResourceRoots(context)
   };
   view.webview.html = createWebviewHtml(view.webview, context.extensionUri);
 
@@ -409,7 +434,7 @@ async function openUriInExplorer(
 function getViewLocation(): ViewLocation {
   const value = vscode.workspace
     .getConfiguration("simpleFileExplorer")
-    .get<string>("viewLocation", "sidebar");
+    .get<string>("viewLocation", "editor");
   return value === "sidebar" ? "sidebar" : "editor";
 }
 
@@ -492,10 +517,111 @@ async function sendInitialState(
       "preferredListColumns",
       { modified: true, size: true }
     ),
+    iconTheme: await loadIconTheme(panel.webview),
     restoreWorkspaceSession,
     workspaceSession,
     viewKind: panel.viewKind
   });
+}
+
+async function refreshIconThemeForActiveWebviews(): Promise<void> {
+  if (activePanel) {
+    await activePanel.webview.postMessage({
+      command: "iconThemeChanged",
+      iconTheme: await loadIconTheme(activePanel.webview)
+    });
+  }
+  if (activeSidebarView) {
+    await activeSidebarView.webview.postMessage({
+      command: "iconThemeChanged",
+      iconTheme: await loadIconTheme(activeSidebarView.webview)
+    });
+  }
+}
+
+async function loadIconTheme(webview: vscode.Webview): Promise<IconThemePayload | undefined> {
+  const mode = vscode.workspace
+    .getConfiguration("simpleFileExplorer")
+    .get<string>("iconThemeMode", "auto");
+  if (mode !== "auto") return undefined;
+
+  const themeId = vscode.workspace
+    .getConfiguration("workbench")
+    .get<string>("iconTheme");
+  if (!themeId) return undefined;
+
+  const contribution = findIconThemeContribution(themeId);
+  if (!contribution) return undefined;
+
+  try {
+    const manifestPath = path.isAbsolute(contribution.themePath)
+      ? contribution.themePath
+      : path.join(contribution.extensionPath, contribution.themePath);
+    const manifest = JSON.parse(
+      await fs.promises.readFile(manifestPath, "utf8")
+    ) as Record<string, unknown>;
+    const manifestDir = path.dirname(manifestPath);
+    const iconDefinitions = asRecord(manifest.iconDefinitions);
+
+    const resolveIcon = (definitionId: unknown): string | undefined => {
+      if (typeof definitionId !== "string") return undefined;
+      if (!iconDefinitions) return undefined;
+      const definition = asRecord(iconDefinitions[definitionId]);
+      const iconPath = definition && typeof definition.iconPath === "string"
+        ? definition.iconPath
+        : undefined;
+      if (!iconPath) return undefined;
+      return webview
+        .asWebviewUri(vscode.Uri.file(path.resolve(manifestDir, iconPath)))
+        .toString();
+    };
+
+    const resolveIconMap = (value: unknown): Record<string, string> => {
+      const source = asRecord(value);
+      if (!source) return {};
+      const result: Record<string, string> = {};
+      for (const [key, definitionId] of Object.entries(source)) {
+        const iconUri = resolveIcon(definitionId);
+        if (iconUri) {
+          result[key.toLocaleLowerCase()] = iconUri;
+        }
+      }
+      return result;
+    };
+
+    return {
+      file: resolveIcon(manifest.file),
+      folder: resolveIcon(manifest.folder),
+      fileExtensions: resolveIconMap(manifest.fileExtensions),
+      fileNames: resolveIconMap(manifest.fileNames),
+      folderNames: resolveIconMap(manifest.folderNames)
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function findIconThemeContribution(
+  themeId: string
+): { extensionPath: string; themePath: string } | undefined {
+  for (const extension of vscode.extensions.all) {
+    const iconThemes = (extension.packageJSON as Record<string, unknown>)?.contributes &&
+      asRecord((extension.packageJSON as Record<string, unknown>).contributes)?.iconThemes;
+    if (!Array.isArray(iconThemes)) continue;
+    for (const theme of iconThemes) {
+      const themeRecord = asRecord(theme);
+      if (
+        themeRecord?.id === themeId &&
+        typeof themeRecord.path === "string"
+      ) {
+        return {
+          extensionPath: extension.extensionPath,
+          themePath: themeRecord.path
+        };
+      }
+    }
+  }
+  return undefined;
 }
 
 function shouldRestoreWorkspaceSession(): boolean {
@@ -1115,6 +1241,12 @@ function asStringArray(value: unknown): string[] {
   return value;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
 function isListColumnPreferences(value: unknown): value is ListColumnPreferences {
   if (!value || typeof value !== "object") return false;
   const columns = value as Record<string, unknown>;
@@ -1135,7 +1267,7 @@ function createWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): s
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+        content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
   <link rel="stylesheet" href="${styleUri}">
   <title>File Explorer</title>
 </head>

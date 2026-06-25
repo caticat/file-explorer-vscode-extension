@@ -478,6 +478,11 @@ body.hide-modified-column.hide-size-column .file-item.list {
   flex: none;
 }
 
+.themed-file-icon {
+  object-fit: contain;
+  fill: unset;
+}
+
 .grid .file-icon {
   width: 42px;
   height: 42px;

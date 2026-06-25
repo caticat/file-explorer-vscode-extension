@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.1.1
+
+- Changed the default view location back to the editor area while keeping the
+  sidebar as an optional mode.
+- Added `simpleFileExplorer.iconThemeMode` with automatic reuse of the current
+  VS Code file icon theme when possible.
+- Added fallback handling so unavailable theme icons fall back to built-in
+  icons instead of rendering blank entries.
+- Added right-click menu toggles for the modified-time and size columns.
+- Refined sidebar tab and toolbar layout for narrow sidebars.
+- Updated the README for the editor/sidebar default behavior and icon theme
+  support.
+
 ## 0.1.0
 
 - Changed the default view location to the Activity Bar sidebar.
