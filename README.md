@@ -34,6 +34,7 @@ already open.
 - Opens or focuses with `Ctrl+Alt+E` (`Cmd+Alt+E` on macOS).
 - Opens in the editor area by default.
 - Optional Activity Bar sidebar mode.
+- Fills the available editor or sidebar surface without extra webview padding.
 - Opens files and folders from the built-in VS Code Explorer context menu.
 - One-click return to the workspace root.
 - In multi-root workspaces, Home returns to the root containing the current path.
@@ -42,6 +43,8 @@ already open.
 - Sidebar tabs automatically shrink to keep the new-tab button reachable.
 - Sidebar toolbar actions are grouped, with display controls visually separated
   from navigation and create actions.
+- Compact sidebar layout supports very narrow sidebars, including one-column
+  large-icon browsing.
 - Optional workspace-specific restoration of tab order, paths, and active tab.
 - One initial tab per root folder in multi-root workspaces without saved state.
 - Back, forward, up, refresh, breadcrumbs, and manual path entry (`Ctrl+L`).
@@ -49,6 +52,8 @@ already open.
 - A shared view-mode preference that persists across tabs and VS Code sessions.
 - Optional editor-only folder tree for navigation, with a collapse-all control
   and persisted visibility/expanded state.
+- Large-icon view keeps its column layout when the editor folder tree is shown
+  or hidden.
 - Automatically reuses the current VS Code file icon theme when possible, with
   built-in fallback icons.
 - Streaming directory enumeration and virtualized rendering for large folders.
@@ -160,12 +165,15 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 多页签、前进、后退、向上、工作区首页和手动路径输入。
 - 多根工作区中，首页按钮会返回当前路径所属的工作区根目录。
 - 支持拖动页签调整顺序。
+- 会铺满 editor 或 sidebar 可用区域，不保留额外 webview 边距。
 - 侧边栏页签会自动压缩宽度，保持新建页签按钮可用。
 - 侧边栏工具栏按导航、新建和显示控制分组，列表/图标等显示选项会单独区分。
+- 更紧凑的侧边栏布局支持很窄的宽度，包括大图标视图一行一个图标。
 - 可按工作区恢复页签顺序、当前路径和活动页签。
 - 多根工作区在没有保存状态时，会为每个根目录创建一个初始页签。
 - 详细信息和大图标两种视图，并在所有页签和下次启动时继承视图设置。
 - editor 模式可开启左侧文件夹树用于导航，支持一键合并，并会保存显示和展开状态。
+- editor 模式下切换左侧文件夹树时，大图标视图会保持正确列数。
 - 默认尝试复用当前 VS Code 文件图标主题，失败时回退到内置图标。
 - 大目录流式读取、虚拟滚动和可见区域元数据加载。
 - 当前目录搜索和可取消的递归文件名搜索。

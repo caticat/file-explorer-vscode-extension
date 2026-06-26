@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.1.3
+
+- Removed the default webview body padding so the explorer fills the editor and
+  sidebar surfaces edge to edge.
+- Made the sidebar layout more compact, including narrower tabs, toolbar
+  controls, address and search fields, and large-icon cells.
+- Fixed editor large-icon view recalculating to a single column after toggling
+  the folder tree.
+
 ## 0.1.2
 
 - Grouped sidebar toolbar actions into navigation, create, and display

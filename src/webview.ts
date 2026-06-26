@@ -1105,6 +1105,11 @@ function scheduleRender(): void {
 function render(): void {
   if (!tabs.length) return;
   const tab = activeTab();
+  const shell = document.querySelector(".shell");
+  shell?.classList.toggle("grid-mode", tab.viewMode === "grid");
+  shell?.classList.toggle("tree-visible", viewKind === "editor" && treeVisible);
+  document.body.classList.toggle("hide-modified-column", !listColumns.modified);
+  document.body.classList.toggle("hide-size-column", !listColumns.size);
   renderTabs();
   renderAddress(tab);
   renderToolbar(tab);
@@ -1115,11 +1120,6 @@ function render(): void {
     tab.selectedPaths.length > 1 ? `${tab.selectedPaths.length.toLocaleString()} selected` : "";
   const showListHeader = tab.viewMode === "list";
   elements.listHeader.classList.toggle("hidden", !showListHeader);
-  const shell = document.querySelector(".shell");
-  shell?.classList.toggle("grid-mode", tab.viewMode === "grid");
-  shell?.classList.toggle("tree-visible", viewKind === "editor" && treeVisible);
-  document.body.classList.toggle("hide-modified-column", !listColumns.modified);
-  document.body.classList.toggle("hide-size-column", !listColumns.size);
   elements.listView.classList.toggle("active", tab.viewMode === "list");
   elements.gridView.classList.toggle("active", tab.viewMode === "grid");
   elements.toggleHidden.classList.toggle("active", tab.showHidden);
@@ -1642,11 +1642,11 @@ function listRowHeight(): number {
 }
 
 function gridItemWidth(): number {
-  return viewKind === "sidebar" ? 104 : 128;
+  return viewKind === "sidebar" ? 68 : 128;
 }
 
 function gridRowHeight(): number {
-  return viewKind === "sidebar" ? 92 : 112;
+  return viewKind === "sidebar" ? 86 : 112;
 }
 
 function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {

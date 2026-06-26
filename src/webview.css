@@ -17,6 +17,7 @@ body,
   width: 100%;
   height: 100%;
   margin: 0;
+  padding: 0;
   overflow: hidden;
   user-select: none;
 }
@@ -680,10 +681,10 @@ body.sidebar-mode .tabs {
 
 body.sidebar-mode .tab {
   flex: 1 1 0;
-  min-width: 46px;
+  min-width: 34px;
   max-width: 140px;
   gap: 4px;
-  padding: 0 7px;
+  padding: 0 5px;
 }
 
 body.sidebar-mode .tab-close {
@@ -694,8 +695,8 @@ body.sidebar-mode .tab-close {
 body.sidebar-mode .toolbar {
   flex-wrap: wrap;
   align-content: start;
-  gap: 4px;
-  padding: 5px;
+  gap: 3px;
+  padding: 3px;
 }
 
 body.sidebar-mode .toolbar > .toolbar-divider,
@@ -707,7 +708,8 @@ body.sidebar-mode .toolbar > .view-switch {
 body.sidebar-mode .sidebar-toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 2px;
   flex: 0 0 100%;
   min-width: 0;
   order: 1;
@@ -716,16 +718,14 @@ body.sidebar-mode .sidebar-toolbar {
 body.sidebar-mode .sidebar-toolbar-group {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 1px;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 body.sidebar-mode .sidebar-toolbar-divider {
-  width: 1px;
-  height: 18px;
-  flex: none;
-  background: var(--vscode-panel-border);
-  opacity: 0.8;
+  display: none;
 }
 
 body.sidebar-mode .sidebar-view-switch {
@@ -733,6 +733,7 @@ body.sidebar-mode .sidebar-view-switch {
   border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
   border-radius: 5px;
   background: var(--vscode-input-background);
+  flex-wrap: wrap;
 }
 
 body.sidebar-mode .sidebar-toolbar .icon-button {
@@ -740,8 +741,8 @@ body.sidebar-mode .sidebar-toolbar .icon-button {
 }
 
 body.sidebar-mode .icon-button {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
 }
 
 body.sidebar-mode .address,
@@ -749,12 +750,31 @@ body.sidebar-mode .address-input,
 body.sidebar-mode .search-box {
   flex-basis: 100%;
   min-width: 0;
-  height: 28px;
+  height: 26px;
   order: 2;
 }
 
 body.sidebar-mode .search-box {
   order: 3;
+}
+
+body.sidebar-mode .address {
+  padding: 0 4px;
+}
+
+body.sidebar-mode .address-input,
+body.sidebar-mode #search-input {
+  padding: 0 4px;
+}
+
+body.sidebar-mode .search-icon {
+  margin-left: 5px;
+}
+
+body.sidebar-mode .search-option {
+  width: 22px;
+  height: 22px;
+  margin-right: 1px;
 }
 
 body.sidebar-mode .list-header {
@@ -794,14 +814,14 @@ body.sidebar-mode.hide-modified-column.hide-size-column .file-item.list {
 }
 
 body.sidebar-mode .file-item.grid {
-  height: 92px;
-  min-width: 104px;
-  padding: 6px;
+  height: 86px;
+  min-width: 68px;
+  padding: 5px 4px;
 }
 
 body.sidebar-mode .grid .file-icon {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
 }
 
 body.sidebar-mode .footer-bar {
