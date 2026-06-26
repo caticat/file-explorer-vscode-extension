@@ -9,6 +9,7 @@ interface DirectoryItem {
   path: string;
   isDirectory: boolean;
   isSymbolicLink: boolean;
+  hasChildren?: boolean;
 }
 
 interface SearchItem extends DirectoryItem {
@@ -19,6 +20,7 @@ const DIRECTORY_BATCH_SIZE = 250;
 const SEARCH_BATCH_SIZE = 100;
 const SEARCH_RESULT_LIMIT = 5000;
 const SEARCH_IGNORED_DIRECTORIES = new Set([".git", "node_modules"]);
+const TREE_CHILD_PROBE_CONCURRENCY = 8;
 const WORKSPACE_SESSION_KEY = "workspaceSession.v1";
 const MAX_SAVED_TABS = 50;
 
@@ -171,7 +173,7 @@ function createExplorerPanel(context: vscode.ExtensionContext): void {
     vscode.ViewColumn.Active,
     {
       enableScripts: true,
-      retainContextWhenHidden: false,
+      retainContextWhenHidden: true,
       localResourceRoots: webviewLocalResourceRoots(context)
     }
   );
@@ -313,6 +315,12 @@ async function handleMessage(
         if (isListColumnPreferences(message.listColumns)) {
           await context.globalState.update("preferredListColumns", message.listColumns);
         }
+        if (typeof message.treeVisible === "boolean") {
+          await context.globalState.update("preferredTreeVisible", message.treeVisible);
+        }
+        if (Array.isArray(message.treeExpandedPaths)) {
+          await context.globalState.update("preferredTreeExpandedPaths", asStringArray(message.treeExpandedPaths));
+        }
         break;
       case "saveWorkspaceSession":
         await saveWorkspaceSession(context, message.session);
@@ -332,6 +340,14 @@ async function handleMessage(
           panel,
           asString(message.requestId),
           asString(message.path)
+        );
+        break;
+      case "readTreeDirectory":
+        await readTreeDirectory(
+          panel,
+          asString(message.requestId),
+          asString(message.path),
+          message.showHidden === true
         );
         break;
       case "cancelRequest":
@@ -520,7 +536,9 @@ async function sendInitialState(
     iconTheme: await loadIconTheme(panel.webview),
     restoreWorkspaceSession,
     workspaceSession,
-    viewKind: panel.viewKind
+    viewKind: panel.viewKind,
+    preferredTreeVisible: context.globalState.get<boolean>("preferredTreeVisible", false),
+    preferredTreeExpandedPaths: context.globalState.get<string[]>("preferredTreeExpandedPaths", [])
   });
 }
 
@@ -784,6 +802,101 @@ async function readDirectoryWithRecovery(
       fallbackPath,
       message: `Directory no longer exists: ${path.resolve(requestedPath)}`
     });
+  }
+}
+
+async function readTreeDirectory(
+  panel: ExplorerWebviewHost,
+  requestId: string,
+  requestedPath: string,
+  showHidden: boolean
+): Promise<void> {
+  const directoryPath = normalizeInputPath(requestedPath);
+  const controller = beginRequest(requestId);
+
+  try {
+    const entries = await fs.promises.readdir(directoryPath, { withFileTypes: true });
+    if (controller.signal.aborted) return;
+
+    const directoryEntries = entries.filter(
+      (entry) => entry.isDirectory() && (showHidden || !entry.name.startsWith("."))
+    );
+
+    const items = await buildTreeDirectoryItems(
+      directoryPath,
+      directoryEntries,
+      showHidden,
+      controller
+    );
+
+    items.sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }));
+
+    await panel.webview.postMessage({
+      command: "treeDirectory",
+      requestId,
+      path: directoryPath,
+      items
+    });
+  } catch (error) {
+    if (!controller.signal.aborted) {
+      await panel.webview.postMessage({
+        command: "treeDirectoryError",
+        requestId,
+        path: directoryPath,
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  } finally {
+    finishRequest(requestId, controller);
+  }
+}
+
+async function buildTreeDirectoryItems(
+  parentPath: string,
+  entries: fs.Dirent[],
+  showHidden: boolean,
+  controller: AbortController
+): Promise<DirectoryItem[]> {
+  const items = new Array<DirectoryItem>(entries.length);
+  let nextIndex = 0;
+
+  const worker = async (): Promise<void> => {
+    while (!controller.signal.aborted) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= entries.length) return;
+
+      const entry = entries[index];
+      const itemPath = path.join(parentPath, entry.name);
+      items[index] = {
+        name: entry.name,
+        path: itemPath,
+        isDirectory: true,
+        isSymbolicLink: entry.isSymbolicLink(),
+        hasChildren: await hasTreeChildDirectory(itemPath, showHidden)
+      };
+    }
+  };
+
+  const workerCount = Math.min(TREE_CHILD_PROBE_CONCURRENCY, entries.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return items.filter((item): item is DirectoryItem => item !== undefined);
+}
+
+async function hasTreeChildDirectory(directoryPath: string, showHidden: boolean): Promise<boolean> {
+  let directory: fs.Dir | undefined;
+  try {
+    directory = await fs.promises.opendir(directoryPath);
+    for await (const entry of directory) {
+      if (entry.isDirectory() && (showHidden || !entry.name.startsWith("."))) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  } finally {
+    await directory?.close().catch(() => undefined);
   }
 }
 

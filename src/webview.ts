@@ -14,6 +14,7 @@ interface DirectoryItem {
   relativePath?: string;
   size?: number;
   modified?: number;
+  hasChildren?: boolean;
 }
 
 interface WorkspaceRoot {
@@ -59,6 +60,20 @@ interface ListColumnPreferences {
   size: boolean;
 }
 
+interface TreeNodeState {
+  path: string;
+  name: string;
+  isDirectory: boolean;
+  isSymbolicLink: boolean;
+  hasChildren?: boolean;
+  expanded: boolean;
+  loading: boolean;
+  loaded: boolean;
+  error?: string;
+  requestId?: string;
+  children: DirectoryItem[];
+}
+
 interface IconThemePayload {
   file?: string;
   folder?: string;
@@ -94,6 +109,11 @@ let clipboardPaths: string[] = [];
 let clipboardCut = false;
 let selectionDrag: SelectionDragState | undefined;
 let suppressedDragClick: SuppressedDragClick | undefined;
+let treeVisible = false;
+let treeShowHidden = false;
+let preferredTreeExpandedPaths = new Set<string>();
+const treeNodes = new Map<string, TreeNodeState>();
+const treeRequests = new Map<string, string>();
 
 interface SelectionDragState {
   pointerId: number;
@@ -121,6 +141,13 @@ app.innerHTML = `
       )}</button>
     </div>
     <div class="toolbar">
+      <button id="toggle-tree" class="icon-button" title="Show folder tree" aria-label="Show folder tree" aria-pressed="false">${toolbarIcon(
+        "M2 2.5h4l1 1.5H14v3H2v-4.5ZM4 8.5h4l1 1.5h5v3.5H4v-5ZM2 5.5v5h2"
+      )}</button>
+      <button id="collapse-tree" class="icon-button" title="Collapse folder tree" aria-label="Collapse folder tree">${toolbarIcon(
+        "M3 5h10M5 8h6M7 11h2"
+      )}</button>
+      <span id="tree-toolbar-divider" class="toolbar-divider tree-toolbar-divider" aria-hidden="true"></span>
       <div class="toolbar-group navigation-group">
         <button id="back" class="icon-button" title="Back" aria-label="Back">${toolbarIcon(
           "M10.5 3.5L6 8l4.5 4.5M6.5 8H14"
@@ -217,16 +244,23 @@ app.innerHTML = `
         </div>
       </div>
     </div>
-    <div id="list-header" class="list-header">
-      <button data-sort="name">Name</button>
-      <button data-sort="modified">Modified</button>
-      <button data-sort="size">Size</button>
-    </div>
-    <div id="viewport" class="viewport" tabindex="0">
-      <div id="spacer" class="spacer"></div>
-      <div id="items" class="items"></div>
-      <div id="empty" class="empty hidden"></div>
-      <div id="selection-box" class="selection-box hidden"></div>
+    <div class="content">
+      <aside id="tree-pane" class="tree-pane" aria-label="Folder tree">
+        <div id="tree-items" class="tree-items"></div>
+      </aside>
+      <main class="main-pane">
+        <div id="list-header" class="list-header">
+          <button data-sort="name">Name</button>
+          <button data-sort="modified">Modified</button>
+          <button data-sort="size">Size</button>
+        </div>
+        <div id="viewport" class="viewport" tabindex="0">
+          <div id="spacer" class="spacer"></div>
+          <div id="items" class="items"></div>
+          <div id="empty" class="empty hidden"></div>
+          <div id="selection-box" class="selection-box hidden"></div>
+        </div>
+      </main>
     </div>
     <div class="footer-bar">
       <span id="status" class="status"></span>
@@ -256,6 +290,9 @@ const elements = {
   up: button("up"),
   workspaceHome: button("workspace-home"),
   refresh: button("refresh"),
+  toggleTree: button("toggle-tree"),
+  collapseTree: button("collapse-tree"),
+  treeToolbarDivider: byId("tree-toolbar-divider"),
   newFile: button("new-file"),
   newFolder: button("new-folder"),
   address: byId("address"),
@@ -276,6 +313,8 @@ const elements = {
   recursiveSearch: button("recursive-search"),
   status: byId("status"),
   selectionStatus: byId("selection-status"),
+  treePane: byId("tree-pane"),
+  treeItems: byId("tree-items"),
   listHeader: byId("list-header"),
   viewport: byId("viewport"),
   spacer: byId("spacer"),
@@ -304,6 +343,8 @@ elements.workspaceHome.addEventListener("click", () =>
   navigate(getWorkspacePath(activeTab().path))
 );
 elements.refresh.addEventListener("click", () => loadDirectory(activeTab(), false));
+elements.toggleTree.addEventListener("click", toggleTreePane);
+elements.collapseTree.addEventListener("click", collapseTreePane);
 elements.newFile.addEventListener("click", () =>
   vscode.postMessage({ command: "createFile", path: activeTab().path })
 );
@@ -481,6 +522,14 @@ function handleHostMessage(message: Record<string, unknown>): void {
       platform = String(message.platform);
       viewKind = message.viewKind === "sidebar" ? "sidebar" : "editor";
       document.body.classList.toggle("sidebar-mode", viewKind === "sidebar");
+      treeVisible = viewKind === "editor" && message.preferredTreeVisible === true;
+      preferredTreeExpandedPaths = new Set(
+        Array.isArray(message.preferredTreeExpandedPaths)
+          ? message.preferredTreeExpandedPaths
+              .filter((value): value is string => typeof value === "string")
+              .map(normalizeForComparison)
+          : []
+      );
       preferredViewMode =
         message.preferredViewMode === "grid" ? "grid" : "list";
       preferredRecursiveSearch = message.preferredRecursiveSearch === true;
@@ -490,7 +539,11 @@ function handleHostMessage(message: Record<string, unknown>): void {
       const workspaceSession = isWorkspaceSession(message.workspaceSession)
         ? message.workspaceSession
         : undefined;
+      initializeTreeRoots();
       restoreOrCreateInitialTab(workspaceSession);
+      if (treeVisible) {
+        loadExpandedTreeRoots();
+      }
       break;
     }
     case "iconThemeChanged": {
@@ -598,6 +651,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
     }
     case "directoryChanged": {
       const changedPath = String(message.path);
+      refreshTreeNode(changedPath);
       for (const tab of tabs) {
         if (normalizeForComparison(tab.path) === normalizeForComparison(changedPath)) {
           loadDirectory(tab, true);
@@ -611,6 +665,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
         clipboardPaths = [];
         clipboardCut = false;
       }
+      refreshTreeNode(changedPath);
       let refreshed = false;
       for (const tab of tabs) {
         if (normalizeForComparison(tab.path) === normalizeForComparison(changedPath)) {
@@ -681,6 +736,48 @@ function handleHostMessage(message: Record<string, unknown>): void {
       tab.status = `${Number(message.count).toLocaleString()} matches · ${Number(
         message.scannedDirectories
       ).toLocaleString()} folders${suffix}`;
+      scheduleRender();
+      break;
+    }
+    case "treeDirectory": {
+      const requestId = String(message.requestId);
+      const nodePath = treeRequests.get(requestId);
+      if (!nodePath) return;
+      treeRequests.delete(requestId);
+      const node = treeNode(nodePath);
+      if (!node || node.requestId !== requestId) return;
+      node.loading = false;
+      node.loaded = true;
+      node.requestId = undefined;
+      node.error = undefined;
+      node.children = message.items as DirectoryItem[];
+      node.hasChildren = node.children.length > 0;
+      for (const child of node.children) {
+        const childNode = ensureTreeNode(child);
+        if (
+          childNode.isDirectory &&
+          preferredTreeExpandedPaths.has(normalizeForComparison(childNode.path))
+        ) {
+          childNode.expanded = true;
+          if (!childNode.loaded && !childNode.loading) {
+            requestTreeDirectory(childNode);
+          }
+        }
+      }
+      scheduleRender();
+      break;
+    }
+    case "treeDirectoryError": {
+      const requestId = String(message.requestId);
+      const nodePath = treeRequests.get(requestId);
+      if (!nodePath) return;
+      treeRequests.delete(requestId);
+      const node = treeNode(nodePath);
+      if (!node || node.requestId !== requestId) return;
+      node.loading = false;
+      node.loaded = true;
+      node.requestId = undefined;
+      node.error = String(message.message || "Unable to load folder.");
       scheduleRender();
       break;
     }
@@ -999,6 +1096,7 @@ function render(): void {
   renderTabs();
   renderAddress(tab);
   renderToolbar(tab);
+  renderTree(tab);
   renderVirtualItems(tab);
   elements.status.textContent = tab.status;
   elements.selectionStatus.textContent =
@@ -1007,12 +1105,17 @@ function render(): void {
   elements.listHeader.classList.toggle("hidden", !showListHeader);
   const shell = document.querySelector(".shell");
   shell?.classList.toggle("grid-mode", tab.viewMode === "grid");
+  shell?.classList.toggle("tree-visible", viewKind === "editor" && treeVisible);
   document.body.classList.toggle("hide-modified-column", !listColumns.modified);
   document.body.classList.toggle("hide-size-column", !listColumns.size);
   elements.listView.classList.toggle("active", tab.viewMode === "list");
   elements.gridView.classList.toggle("active", tab.viewMode === "grid");
   elements.toggleHidden.classList.toggle("active", tab.showHidden);
   elements.toggleHidden.title = tab.showHidden ? "Hide hidden files" : "Show hidden files";
+  elements.toggleTree.classList.toggle("active", treeVisible);
+  elements.toggleTree.title = treeVisible ? "Hide folder tree" : "Show folder tree";
+  elements.toggleTree.setAttribute("aria-label", treeVisible ? "Hide folder tree" : "Show folder tree");
+  elements.toggleTree.setAttribute("aria-pressed", String(treeVisible));
   elements.sidebarListView.classList.toggle("active", tab.viewMode === "list");
   elements.sidebarGridView.classList.toggle("active", tab.viewMode === "grid");
   elements.sidebarToggleHidden.classList.toggle("active", tab.showHidden);
@@ -1142,6 +1245,312 @@ function renderToolbar(tab: ExplorerTab): void {
   elements.sidebarBack.disabled = tab.historyIndex <= 0;
   elements.sidebarUp.disabled = dirname(tab.path) === tab.path;
   elements.sidebarWorkspaceHome.disabled = !workspaceRoots.length;
+}
+
+function initializeTreeRoots(): void {
+  treeNodes.clear();
+  treeRequests.clear();
+
+  const roots = workspaceRoots.length
+    ? workspaceRoots
+    : [{ name: basename(initialPath) || initialPath, path: initialPath }];
+
+  for (const root of roots) {
+    ensureTreeNode({
+      name: root.name || basename(root.path) || root.path,
+      path: root.path,
+      isDirectory: true,
+      isSymbolicLink: false
+    });
+  }
+}
+
+function renderTree(tab: ExplorerTab): void {
+  elements.toggleTree.classList.toggle("hidden", viewKind !== "editor");
+  elements.collapseTree.classList.toggle("hidden", viewKind !== "editor" || !treeVisible);
+  elements.treeToolbarDivider.classList.toggle("hidden", viewKind !== "editor");
+  elements.treePane.classList.toggle("hidden", viewKind !== "editor" || !treeVisible);
+  if (viewKind !== "editor" || !treeVisible) {
+    elements.treeItems.replaceChildren();
+    return;
+  }
+
+  syncTreeHiddenMode(tab.showHidden);
+
+  const nodes: HTMLElement[] = [];
+  const roots = workspaceRoots.length
+    ? workspaceRoots.map((root) =>
+        ensureTreeNode({
+          name: root.name || basename(root.path) || root.path,
+          path: root.path,
+          isDirectory: true,
+          isSymbolicLink: false
+        })
+      )
+    : [
+        ensureTreeNode({
+          name: basename(initialPath) || initialPath,
+          path: initialPath,
+          isDirectory: true,
+          isSymbolicLink: false
+        })
+      ];
+
+  for (const root of roots) {
+    appendTreeNode(nodes, root, 0, tab.path);
+  }
+
+  elements.treeItems.replaceChildren(...nodes);
+}
+
+function toggleTreePane(): void {
+  if (viewKind !== "editor") return;
+  treeVisible = !treeVisible;
+  if (treeVisible) {
+    if (preferredTreeExpandedPaths.size === 0) {
+      expandTreeRoots();
+    } else {
+      loadExpandedTreeRoots();
+    }
+  }
+  saveTreePreferences();
+  scheduleRender();
+}
+
+function collapseTreePane(): void {
+  if (viewKind !== "editor" || !treeVisible) return;
+  preferredTreeExpandedPaths.clear();
+
+  const rootKeys = new Set<string>();
+  for (const root of treeRootNodes()) {
+    rootKeys.add(normalizeForComparison(root.path));
+  }
+
+  for (const node of treeNodes.values()) {
+    const isRoot = rootKeys.has(normalizeForComparison(node.path));
+    node.expanded = isRoot;
+    if (isRoot) {
+      preferredTreeExpandedPaths.add(normalizeForComparison(node.path));
+    }
+  }
+
+  saveTreePreferences();
+  scheduleRender();
+}
+
+function loadExpandedTreeRoots(): void {
+  for (const node of treeNodes.values()) {
+    if (node.isDirectory && node.expanded && !node.loaded && !node.loading) {
+      requestTreeDirectory(node);
+    }
+  }
+}
+
+function syncTreeHiddenMode(showHidden: boolean): void {
+  if (treeShowHidden === showHidden) return;
+  treeShowHidden = showHidden;
+  for (const node of treeNodes.values()) {
+    node.loaded = false;
+    node.children = [];
+    node.error = undefined;
+    if (node.requestId) {
+      vscode.postMessage({ command: "cancelRequest", requestId: node.requestId });
+      treeRequests.delete(node.requestId);
+      node.requestId = undefined;
+      node.loading = false;
+    }
+  }
+  loadExpandedTreeRoots();
+}
+
+function expandTreeRoots(): void {
+  const roots = treeRootNodes();
+
+  for (const root of roots) {
+    root.expanded = true;
+    preferredTreeExpandedPaths.add(normalizeForComparison(root.path));
+    if (!root.loaded && !root.loading) {
+      requestTreeDirectory(root);
+    }
+  }
+}
+
+function treeRootNodes(): TreeNodeState[] {
+  return workspaceRoots.length
+    ? workspaceRoots.map((root) =>
+        ensureTreeNode({
+          name: root.name || basename(root.path) || root.path,
+          path: root.path,
+          isDirectory: true,
+          isSymbolicLink: false
+        })
+      )
+    : [
+        ensureTreeNode({
+          name: basename(initialPath) || initialPath,
+          path: initialPath,
+          isDirectory: true,
+          isSymbolicLink: false
+        })
+      ];
+}
+
+function appendTreeNode(
+  nodes: HTMLElement[],
+  node: TreeNodeState,
+  depth: number,
+  activePath: string
+): void {
+  const normalizedNodePath = normalizeForComparison(node.path);
+  const isActive = normalizeForComparison(activePath) === normalizedNodePath;
+  const containsActive = !isActive && isPathInsideOrEqual(activePath, node.path);
+  const canExpand = node.loaded ? node.children.length > 0 : node.hasChildren !== false;
+
+  const row = document.createElement("button");
+  row.className = `tree-item directory${isActive ? " active" : ""}${containsActive ? " contains-active" : ""}`;
+  row.style.setProperty("--tree-depth", String(depth));
+  row.title = node.path;
+  row.dataset.path = node.path;
+  row.addEventListener("click", () => navigate(node.path));
+
+  const toggle = document.createElement("span");
+  toggle.className = `tree-toggle${canExpand ? "" : " empty"}`;
+  toggle.textContent = canExpand ? (node.expanded ? "⌄" : "›") : "";
+  toggle.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (canExpand) toggleTreeNode(node);
+  });
+
+  const icon = createFileIcon({
+    name: node.name,
+    path: node.path,
+    isDirectory: node.isDirectory,
+    isSymbolicLink: node.isSymbolicLink
+  });
+  icon.classList.add("tree-icon");
+
+  const label = document.createElement("span");
+  label.className = "tree-label";
+  label.textContent = node.name;
+
+  row.append(toggle, icon, label);
+  nodes.push(row);
+
+  if (node.error && node.expanded) {
+    const error = document.createElement("div");
+    error.className = "tree-message";
+    error.style.setProperty("--tree-depth", String(depth + 1));
+    error.textContent = "Unable to load";
+    error.title = node.error;
+    nodes.push(error);
+  }
+
+  if (node.loading && node.expanded) {
+    const loading = document.createElement("div");
+    loading.className = "tree-message";
+    loading.style.setProperty("--tree-depth", String(depth + 1));
+    loading.textContent = "Loading...";
+    nodes.push(loading);
+  }
+
+  if (!node.expanded) return;
+  for (const child of node.children) {
+    const childNode = ensureTreeNode(child);
+    appendTreeNode(nodes, childNode, depth + 1, activePath);
+  }
+}
+
+function toggleTreeNode(node: TreeNodeState): void {
+  if (!node.isDirectory) return;
+  node.expanded = !node.expanded;
+  const normalizedPath = normalizeForComparison(node.path);
+  if (node.expanded) {
+    preferredTreeExpandedPaths.add(normalizedPath);
+  } else {
+    preferredTreeExpandedPaths.delete(normalizedPath);
+  }
+  if (node.expanded && !node.loaded && !node.loading) {
+    requestTreeDirectory(node);
+  }
+  saveTreePreferences();
+  scheduleRender();
+}
+
+function requestTreeDirectory(node: TreeNodeState): void {
+  if (viewKind !== "editor" || !node.isDirectory) return;
+  if (node.requestId) {
+    vscode.postMessage({ command: "cancelRequest", requestId: node.requestId });
+    treeRequests.delete(node.requestId);
+  }
+
+  node.loading = true;
+  node.error = undefined;
+  node.requestId = randomId();
+  treeRequests.set(node.requestId, node.path);
+  vscode.postMessage({
+    command: "readTreeDirectory",
+    requestId: node.requestId,
+    path: node.path,
+    showHidden: activeTab().showHidden
+  });
+}
+
+function refreshTreeNode(nodePath: string): void {
+  const node = treeNode(nodePath);
+  if (!node || !node.isDirectory) return;
+  node.loaded = false;
+  node.children = [];
+  node.error = undefined;
+  node.hasChildren = undefined;
+  if (node.expanded) {
+    requestTreeDirectory(node);
+  }
+}
+
+function ensureTreeNode(item: DirectoryItem): TreeNodeState {
+  const key = treeKey(item.path);
+  const existing = treeNodes.get(key);
+  if (existing) {
+    existing.name = item.name;
+    existing.isDirectory = item.isDirectory;
+    existing.isSymbolicLink = item.isSymbolicLink;
+    existing.hasChildren = item.hasChildren;
+    return existing;
+  }
+
+  const node: TreeNodeState = {
+    path: item.path,
+    name: item.name,
+    isDirectory: item.isDirectory,
+    isSymbolicLink: item.isSymbolicLink,
+    hasChildren: item.hasChildren,
+    expanded: false,
+    loading: false,
+    loaded: !item.isDirectory,
+    children: []
+  };
+  if (node.isDirectory && preferredTreeExpandedPaths.has(normalizeForComparison(node.path))) {
+    node.expanded = true;
+  }
+  treeNodes.set(key, node);
+  return node;
+}
+
+function saveTreePreferences(): void {
+  vscode.postMessage({
+    command: "savePreferences",
+    treeVisible,
+    treeExpandedPaths: Array.from(preferredTreeExpandedPaths)
+  });
+}
+
+function treeNode(nodePath: string): TreeNodeState | undefined {
+  return treeNodes.get(treeKey(nodePath));
+}
+
+function treeKey(nodePath: string): string {
+  return normalizeForComparison(nodePath);
 }
 
 function updateListColumnMenu(): void {

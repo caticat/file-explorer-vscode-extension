@@ -47,6 +47,8 @@ already open.
 - Back, forward, up, refresh, breadcrumbs, and manual path entry (`Ctrl+L`).
 - Detailed list and large-icon views.
 - A shared view-mode preference that persists across tabs and VS Code sessions.
+- Optional editor-only folder tree for navigation, with a collapse-all control
+  and persisted visibility/expanded state.
 - Automatically reuses the current VS Code file icon theme when possible, with
   built-in fallback icons.
 - Streaming directory enumeration and virtualized rendering for large folders.
@@ -90,6 +92,18 @@ Host.
 - `simpleFileExplorer.iconThemeMode` — choose file and folder icons:
   `auto` reuses the current VS Code file icon theme when possible, while
   `codicon` always uses the built-in fallback icons. Default: `auto`.
+
+## Folder Tree Performance
+
+The editor-only folder tree is lazy loaded. It reads child folders only when a
+tree node is expanded, and it does not recursively expand the full workspace.
+To avoid showing expand arrows for folders without visible child folders, the
+tree checks one level below visible child folders as they are loaded.
+
+When the folder tree is hidden, it is not rendered and does not issue tree
+directory reads. In editor mode the webview context is retained while hidden so
+returning to the explorer does not reset the tree state; this keeps a small
+amount of webview state in memory.
 
 ## Scope
 
@@ -145,6 +159,7 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 可按工作区恢复页签顺序、当前路径和活动页签。
 - 多根工作区在没有保存状态时，会为每个根目录创建一个初始页签。
 - 详细信息和大图标两种视图，并在所有页签和下次启动时继承视图设置。
+- editor 模式可开启左侧文件夹树用于导航，支持一键合并，并会保存显示和展开状态。
 - 默认尝试复用当前 VS Code 文件图标主题，失败时回退到内置图标。
 - 大目录流式读取、虚拟滚动和可见区域元数据加载。
 - 当前目录搜索和可取消的递归文件名搜索。
@@ -181,3 +196,13 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
   默认 `editor`。
 - `simpleFileExplorer.iconThemeMode`：选择文件和文件夹图标，`auto` 会尽量复用
   当前 VS Code 文件图标主题，`codicon` 始终使用内置兜底图标，默认 `auto`。
+
+## 树形导航性能
+
+左侧文件夹树仅在 editor 模式可用，并采用懒加载。只有展开某个树节点时，
+才读取该目录下的子文件夹，不会递归展开整个工作区。为了避免没有可见子目录
+的文件夹仍显示展开箭头，加载某层目录时会额外检查可见子文件夹的下一层。
+
+隐藏文件夹树时，不会渲染树，也不会发起树形目录读取。editor 模式下会保留
+webview 上下文，切换到文件编辑器再回来时不会重置树状态；代价是隐藏时会保留
+少量 webview 内存状态。

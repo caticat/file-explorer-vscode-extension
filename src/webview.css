@@ -37,7 +37,7 @@ button {
 
 .shell {
   display: grid;
-  grid-template-rows: 34px 44px 28px minmax(0, 1fr) 24px;
+  grid-template-rows: 34px 44px minmax(0, 1fr) 24px;
   background: var(--vscode-editor-background);
 }
 
@@ -57,13 +57,105 @@ button {
   background: var(--vscode-editorGroupHeader-tabsBackground);
 }
 
-.shell.grid-mode {
-  grid-template-rows: 34px 44px minmax(0, 1fr) 24px;
-}
-
 .tabs-bar {
   padding: 0 8px;
   background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+
+.content {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.shell.tree-visible .content {
+  grid-template-columns: minmax(220px, 248px) minmax(0, 1fr);
+}
+
+.main-pane {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 28px minmax(0, 1fr);
+}
+
+.shell.grid-mode .main-pane {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.tree-pane {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-sideBar-background);
+}
+
+.tree-items {
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.tree-item {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px 0 calc(30px + var(--tree-depth) * 14px);
+  color: var(--vscode-sideBar-foreground);
+  background: transparent;
+  text-align: left;
+}
+
+.tree-item:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.tree-item.active {
+  color: var(--vscode-list-activeSelectionForeground);
+  background: var(--vscode-list-activeSelectionBackground);
+}
+
+.tree-item.contains-active:not(.active) .tree-label {
+  color: var(--vscode-list-highlightForeground);
+}
+
+.tree-toggle {
+  position: absolute;
+  left: calc(8px + var(--tree-depth) * 14px);
+  flex: none;
+  width: 16px;
+  color: var(--vscode-icon-foreground);
+  text-align: center;
+}
+
+.tree-toggle.empty {
+  visibility: hidden;
+}
+
+.tree-icon {
+  flex: 0 0 16px !important;
+  width: 16px;
+  height: 16px;
+}
+
+.tree-label {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 16px;
+}
+
+.tree-message {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 calc(42px + var(--tree-depth) * 14px);
+  color: var(--vscode-descriptionForeground);
 }
 
 .tabs {
@@ -559,11 +651,23 @@ body.hide-size-column .file-size {
 }
 
 body.sidebar-mode .shell {
-  grid-template-rows: 32px auto 24px minmax(0, 1fr) 22px;
+  grid-template-rows: 32px auto minmax(0, 1fr) 22px;
 }
 
-body.sidebar-mode .shell.grid-mode {
-  grid-template-rows: 32px auto minmax(0, 1fr) 22px;
+body.sidebar-mode .content {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.sidebar-mode .tree-pane {
+  display: none;
+}
+
+body.sidebar-mode .main-pane {
+  grid-template-rows: 24px minmax(0, 1fr);
+}
+
+body.sidebar-mode .shell.grid-mode .main-pane {
+  grid-template-rows: minmax(0, 1fr);
 }
 
 body.sidebar-mode .tabs-bar {
