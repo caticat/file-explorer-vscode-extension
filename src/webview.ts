@@ -44,6 +44,7 @@ interface ExplorerTab {
   selectedPaths: string[];
   selectionAnchorPath?: string;
   showHidden: boolean;
+  preserveFocusAfterReveal?: boolean;
   sortKey: "name" | "modified" | "size";
   sortDirection: "asc" | "desc";
   externalNavigationId?: string;
@@ -111,6 +112,7 @@ let selectionDrag: SelectionDragState | undefined;
 let suppressedDragClick: SuppressedDragClick | undefined;
 let treeVisible = false;
 let treeShowHidden = false;
+let treeProbeChildFolders = false;
 let preferredTreeExpandedPaths = new Set<string>();
 const treeNodes = new Map<string, TreeNodeState>();
 const treeRequests = new Map<string, string>();
@@ -523,6 +525,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
       viewKind = message.viewKind === "sidebar" ? "sidebar" : "editor";
       document.body.classList.toggle("sidebar-mode", viewKind === "sidebar");
       treeVisible = viewKind === "editor" && message.preferredTreeVisible === true;
+      treeProbeChildFolders = message.treeProbeChildFolders === true;
       preferredTreeExpandedPaths = new Set(
         Array.isArray(message.preferredTreeExpandedPaths)
           ? message.preferredTreeExpandedPaths
@@ -548,6 +551,12 @@ function handleHostMessage(message: Record<string, unknown>): void {
     }
     case "iconThemeChanged": {
       iconTheme = normalizeIconTheme(message.iconTheme);
+      scheduleRender();
+      break;
+    }
+    case "treeProbeChildFoldersChanged": {
+      treeProbeChildFolders = message.enabled === true;
+      invalidateTreeNodes();
       scheduleRender();
       break;
     }
@@ -603,7 +612,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
           (item) => normalizeForComparison(item.path) === normalizeForComparison(tab.pendingRevealPath!)
         )
       ) {
-        revealSelectedItem(tab);
+        revealSelectedItem(tab, !tab.preserveFocusAfterReveal);
       }
       scheduleRender();
       break;
@@ -615,9 +624,10 @@ function handleHostMessage(message: Record<string, unknown>): void {
       sortItems(tab.items, tab);
       applyLocalFilter(tab);
       cleanSelection(tab);
-      revealSelectedItem(tab);
+      revealSelectedItem(tab, !tab.preserveFocusAfterReveal);
       completeExternalNavigation(tab);
       tab.pendingRevealPath = undefined;
+      tab.preserveFocusAfterReveal = false;
       tab.status = `${Number(message.count).toLocaleString()} items`;
       tab.requestId = undefined;
       scheduleRender();
@@ -651,10 +661,11 @@ function handleHostMessage(message: Record<string, unknown>): void {
     }
     case "directoryChanged": {
       const changedPath = String(message.path);
+      const preserveFocus = message.preserveFocus === true;
       refreshTreeNode(changedPath);
       for (const tab of tabs) {
         if (normalizeForComparison(tab.path) === normalizeForComparison(changedPath)) {
-          loadDirectory(tab, true);
+          loadDirectory(tab, true, preserveFocus);
         }
       }
       break;
@@ -943,11 +954,12 @@ function navigateUp(): void {
   }
 }
 
-function loadDirectory(tab: ExplorerTab, preserveItems: boolean): void {
+function loadDirectory(tab: ExplorerTab, preserveItems: boolean, preserveFocus = false): void {
   cancelTabRequests(tab);
   tab.requestId = randomId();
   tab.loading = true;
   tab.status = "Loading…";
+  tab.preserveFocusAfterReveal = preserveFocus;
   if (!preserveItems) {
     tab.items = [];
     tab.filteredItems = [];
@@ -1349,10 +1361,16 @@ function loadExpandedTreeRoots(): void {
 function syncTreeHiddenMode(showHidden: boolean): void {
   if (treeShowHidden === showHidden) return;
   treeShowHidden = showHidden;
+  invalidateTreeNodes();
+  loadExpandedTreeRoots();
+}
+
+function invalidateTreeNodes(): void {
   for (const node of treeNodes.values()) {
     node.loaded = false;
     node.children = [];
     node.error = undefined;
+    node.hasChildren = undefined;
     if (node.requestId) {
       vscode.postMessage({ command: "cancelRequest", requestId: node.requestId });
       treeRequests.delete(node.requestId);
@@ -1360,7 +1378,6 @@ function syncTreeHiddenMode(showHidden: boolean): void {
       node.loading = false;
     }
   }
-  loadExpandedTreeRoots();
 }
 
 function expandTreeRoots(): void {
@@ -1446,7 +1463,7 @@ function appendTreeNode(
     nodes.push(error);
   }
 
-  if (node.loading && node.expanded) {
+  if (treeProbeChildFolders && node.loading && node.expanded) {
     const loading = document.createElement("div");
     loading.className = "tree-message";
     loading.style.setProperty("--tree-depth", String(depth + 1));
@@ -1492,7 +1509,8 @@ function requestTreeDirectory(node: TreeNodeState): void {
     command: "readTreeDirectory",
     requestId: node.requestId,
     path: node.path,
-    showHidden: activeTab().showHidden
+    showHidden: activeTab().showHidden,
+    probeChildFolders: treeProbeChildFolders
   });
 }
 
@@ -2392,7 +2410,7 @@ function syncDirectoryWatchers(): void {
   });
 }
 
-function revealSelectedItem(tab: ExplorerTab): void {
+function revealSelectedItem(tab: ExplorerTab, focusSelected = true): void {
   if (!tab.selectedPath) {
     return;
   }
@@ -2426,6 +2444,7 @@ function revealSelectedItem(tab: ExplorerTab): void {
     elements.viewport.scrollTop = targetScrollTop;
     scheduleRender();
     requestAnimationFrame(() => {
+      if (!focusSelected) return;
       const selected = elements.items.querySelector<HTMLElement>(".file-item.selected");
       selected?.focus({ preventScroll: true });
     });

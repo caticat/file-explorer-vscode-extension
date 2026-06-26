@@ -92,13 +92,19 @@ Host.
 - `simpleFileExplorer.iconThemeMode` — choose file and folder icons:
   `auto` reuses the current VS Code file icon theme when possible, while
   `codicon` always uses the built-in fallback icons. Default: `auto`.
+- `simpleFileExplorer.treeProbeChildFolders` — check whether folders in the
+  editor tree have visible child folders before showing expand arrows. Default:
+  `false` for better performance.
 
 ## Folder Tree Performance
 
 The editor-only folder tree is lazy loaded. It reads child folders only when a
 tree node is expanded, and it does not recursively expand the full workspace.
-To avoid showing expand arrows for folders without visible child folders, the
-tree checks one level below visible child folders as they are loaded.
+By default the tree does not probe child folders before expansion, so unloaded
+folders show an expand arrow and folders without visible child folders lose the
+arrow after they are opened. Enable `simpleFileExplorer.treeProbeChildFolders`
+to check one level below visible child folders as they are loaded and hide those
+arrows up front.
 
 When the folder tree is hidden, it is not rendered and does not issue tree
 directory reads. In editor mode the webview context is retained while hidden so
@@ -196,12 +202,16 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
   默认 `editor`。
 - `simpleFileExplorer.iconThemeMode`：选择文件和文件夹图标，`auto` 会尽量复用
   当前 VS Code 文件图标主题，`codicon` 始终使用内置兜底图标，默认 `auto`。
+- `simpleFileExplorer.treeProbeChildFolders`：在 editor 树形导航中提前检查文件夹
+  是否有可见子文件夹，再决定是否显示展开箭头。默认关闭以获得更好的性能。
 
 ## 树形导航性能
 
 左侧文件夹树仅在 editor 模式可用，并采用懒加载。只有展开某个树节点时，
-才读取该目录下的子文件夹，不会递归展开整个工作区。为了避免没有可见子目录
-的文件夹仍显示展开箭头，加载某层目录时会额外检查可见子文件夹的下一层。
+才读取该目录下的子文件夹，不会递归展开整个工作区。默认不会在展开前探测
+子目录，因此未加载的文件夹会显示展开箭头；如果展开后没有可见子目录，箭头
+会自动消失。开启 `simpleFileExplorer.treeProbeChildFolders` 后，加载某层
+目录时会额外检查可见子文件夹的下一层，从而提前隐藏这些箭头。
 
 隐藏文件夹树时，不会渲染树，也不会发起树形目录读取。editor 模式下会保留
 webview 上下文，切换到文件编辑器再回来时不会重置树状态；代价是隐藏时会保留

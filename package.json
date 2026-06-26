@@ -136,6 +136,11 @@
           ],
           "default": "auto",
           "description": "Choose file and folder icons. Use auto to reuse the current VS Code file icon theme when possible, or codicon to always use the built-in fallback icons."
+        },
+        "simpleFileExplorer.treeProbeChildFolders": {
+          "type": "boolean",
+          "default": false,
+          "description": "Check whether folders in the editor tree have visible child folders before showing expand arrows. Disabled by default for better performance."
         }
       }
     }

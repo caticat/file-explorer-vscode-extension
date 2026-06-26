@@ -46,6 +46,7 @@ interface IconThemePayload {
 interface ExplorerWebviewHost {
   webview: vscode.Webview;
   viewKind: "editor" | "sidebar";
+  visible(): boolean;
   dispose?(): void;
 }
 
@@ -149,6 +150,17 @@ export function activate(context: vscode.ExtensionContext): void {
         event.affectsConfiguration("simpleFileExplorer.iconThemeMode")
       ) {
         void refreshIconThemeForActiveWebviews();
+      }
+      if (event.affectsConfiguration("simpleFileExplorer.treeProbeChildFolders")) {
+        const enabled = shouldProbeTreeChildFolders();
+        activePanel?.webview.postMessage({
+          command: "treeProbeChildFoldersChanged",
+          enabled
+        });
+        activeSidebarView?.webview.postMessage({
+          command: "treeProbeChildFoldersChanged",
+          enabled
+        });
       }
     })
   );
@@ -272,6 +284,7 @@ function createPanelHost(panel: vscode.WebviewPanel): ExplorerWebviewHost {
   return {
     webview: panel.webview,
     viewKind: "editor",
+    visible: () => panel.visible,
     dispose: () => panel.dispose()
   };
 }
@@ -279,7 +292,8 @@ function createPanelHost(panel: vscode.WebviewPanel): ExplorerWebviewHost {
 function createSidebarHost(view: vscode.WebviewView): ExplorerWebviewHost {
   return {
     webview: view.webview,
-    viewKind: "sidebar"
+    viewKind: "sidebar",
+    visible: () => view.visible
   };
 }
 
@@ -347,7 +361,8 @@ async function handleMessage(
           panel,
           asString(message.requestId),
           asString(message.path),
-          message.showHidden === true
+          message.showHidden === true,
+          message.probeChildFolders === true
         );
         break;
       case "cancelRequest":
@@ -538,8 +553,15 @@ async function sendInitialState(
     workspaceSession,
     viewKind: panel.viewKind,
     preferredTreeVisible: context.globalState.get<boolean>("preferredTreeVisible", false),
-    preferredTreeExpandedPaths: context.globalState.get<string[]>("preferredTreeExpandedPaths", [])
+    preferredTreeExpandedPaths: context.globalState.get<string[]>("preferredTreeExpandedPaths", []),
+    treeProbeChildFolders: shouldProbeTreeChildFolders()
   });
+}
+
+function shouldProbeTreeChildFolders(): boolean {
+  return vscode.workspace
+    .getConfiguration("simpleFileExplorer")
+    .get<boolean>("treeProbeChildFolders", false);
 }
 
 async function refreshIconThemeForActiveWebviews(): Promise<void> {
@@ -809,7 +831,8 @@ async function readTreeDirectory(
   panel: ExplorerWebviewHost,
   requestId: string,
   requestedPath: string,
-  showHidden: boolean
+  showHidden: boolean,
+  probeChildFolders: boolean
 ): Promise<void> {
   const directoryPath = normalizeInputPath(requestedPath);
   const controller = beginRequest(requestId);
@@ -822,12 +845,14 @@ async function readTreeDirectory(
       (entry) => entry.isDirectory() && (showHidden || !entry.name.startsWith("."))
     );
 
-    const items = await buildTreeDirectoryItems(
-      directoryPath,
-      directoryEntries,
-      showHidden,
-      controller
-    );
+    const items = probeChildFolders
+      ? await buildTreeDirectoryItems(directoryPath, directoryEntries, showHidden, controller)
+      : directoryEntries.map((entry) => ({
+          name: entry.name,
+          path: path.join(directoryPath, entry.name),
+          isDirectory: true,
+          isSymbolicLink: entry.isSymbolicLink()
+        }));
 
     items.sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }));
 
@@ -1120,12 +1145,24 @@ function updateDirectoryWatchers(panel: ExplorerWebviewHost, paths: string[]): v
           watchedPath,
           setTimeout(() => {
             watcherTimers.delete(watchedPath);
-            panel.webview.postMessage({ command: "directoryChanged", path: watchedPath });
+            if (panel.visible()) {
+              panel.webview.postMessage({
+                command: "directoryChanged",
+                path: watchedPath,
+                preserveFocus: true
+              });
+            }
           }, 300)
         );
       });
       watcher.on("error", () => {
-        panel.webview.postMessage({ command: "directoryChanged", path: watchedPath });
+        if (panel.visible()) {
+          panel.webview.postMessage({
+            command: "directoryChanged",
+            path: watchedPath,
+            preserveFocus: true
+          });
+        }
         watcher.close();
         directoryWatchers.delete(watchedPath);
       });
