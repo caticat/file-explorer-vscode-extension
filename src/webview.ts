@@ -93,7 +93,7 @@ let typeAheadTimer = 0;
 let clipboardPaths: string[] = [];
 let clipboardCut = false;
 let selectionDrag: SelectionDragState | undefined;
-let suppressNextItemClick = false;
+let suppressedDragClick: SuppressedDragClick | undefined;
 
 interface SelectionDragState {
   pointerId: number;
@@ -104,6 +104,12 @@ interface SelectionDragState {
   additive: boolean;
   baseSelection: string[];
   active: boolean;
+}
+
+interface SuppressedDragClick {
+  clientX: number;
+  clientY: number;
+  expiresAt: number;
 }
 
 app.innerHTML = `
@@ -453,8 +459,7 @@ window.addEventListener("pointercancel", endSelectionDrag);
 window.addEventListener(
   "click",
   (event) => {
-    if (!suppressNextItemClick) return;
-    suppressNextItemClick = false;
+    if (!shouldSuppressDragClick(event)) return;
     event.preventDefault();
     event.stopPropagation();
   },
@@ -1249,9 +1254,8 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
   }
 
   element.addEventListener("click", (event) => {
-    if (suppressNextItemClick) {
+    if (shouldSuppressDragClick(event)) {
       event.preventDefault();
-      suppressNextItemClick = false;
       return;
     }
     updateSelection(tab, item.path, event.ctrlKey || event.metaKey, event.shiftKey);
@@ -1807,7 +1811,6 @@ function updateSelectionDrag(event: PointerEvent): void {
     const distanceY = Math.abs(selectionDrag.currentY - selectionDrag.startY);
     if (distanceX < 5 && distanceY < 5) return;
     selectionDrag.active = true;
-    suppressNextItemClick = true;
     elements.selectionBox.classList.remove("hidden");
     document.body.classList.add("drag-selecting");
     clearNativeTextSelection();
@@ -1823,12 +1826,28 @@ function endSelectionDrag(event: PointerEvent): void {
 
   if (selectionDrag.active) {
     event.preventDefault();
-    suppressNextItemClick = true;
+    suppressedDragClick = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      expiresAt: performance.now() + 350
+    };
   }
 
   selectionDrag = undefined;
   elements.selectionBox.classList.add("hidden");
   document.body.classList.remove("drag-selecting");
+}
+
+function shouldSuppressDragClick(event: MouseEvent): boolean {
+  if (!suppressedDragClick) return false;
+
+  const pending = suppressedDragClick;
+  suppressedDragClick = undefined;
+  if (performance.now() > pending.expiresAt) return false;
+
+  const distanceX = Math.abs(event.clientX - pending.clientX);
+  const distanceY = Math.abs(event.clientY - pending.clientY);
+  return distanceX <= 8 && distanceY <= 8;
 }
 
 function renderSelectionBox(state: SelectionDragState): void {
