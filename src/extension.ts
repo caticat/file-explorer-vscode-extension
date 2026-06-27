@@ -19,8 +19,11 @@ interface SearchItem extends DirectoryItem {
 const DIRECTORY_BATCH_SIZE = 250;
 const SEARCH_BATCH_SIZE = 100;
 const SEARCH_RESULT_LIMIT = 5000;
-const SEARCH_IGNORED_DIRECTORIES = new Set([".git", "node_modules"]);
+const DEFAULT_SEARCH_IGNORED_DIRECTORIES = [".git"];
+const SEARCH_EXCLUDE_CONFIG_KEYS = ["search.exclude", "files.exclude"];
 const TREE_CHILD_PROBE_CONCURRENCY = 8;
+const METADATA_BATCH_LIMIT = 100;
+const METADATA_STAT_CONCURRENCY = 16;
 const WORKSPACE_SESSION_KEY = "workspaceSession.v1";
 const MAX_SAVED_TABS = 50;
 
@@ -36,6 +39,14 @@ interface ListColumnPreferences {
 }
 
 interface IconThemePayload {
+  file?: string;
+  folder?: string;
+  fileExtensions: Record<string, string>;
+  fileNames: Record<string, string>;
+  folderNames: Record<string, string>;
+}
+
+interface CachedIconThemePayload {
   file?: string;
   folder?: string;
   fileExtensions: Record<string, string>;
@@ -63,6 +74,10 @@ let pendingNavigation:
 const runningRequests = new Map<string, AbortController>();
 const directoryWatchers = new Map<string, fs.FSWatcher>();
 const watcherTimers = new Map<string, NodeJS.Timeout>();
+const metadataStatQueue: Array<() => void> = [];
+const pendingMetadataStats = new Map<string, Promise<{ path: string; size?: number; modified?: number }>>();
+const iconThemeCache = new Map<string, CachedIconThemePayload | undefined>();
+let activeMetadataStats = 0;
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
@@ -149,7 +164,7 @@ export function activate(context: vscode.ExtensionContext): void {
         event.affectsConfiguration("workbench.iconTheme") ||
         event.affectsConfiguration("simpleFileExplorer.iconThemeMode")
       ) {
-        void refreshIconThemeForActiveWebviews();
+        void refreshIconThemeForActiveWebviews(context);
       }
       if (event.affectsConfiguration("simpleFileExplorer.treeProbeChildFolders")) {
         const enabled = shouldProbeTreeChildFolders();
@@ -232,12 +247,12 @@ function createExplorerPanel(context: vscode.ExtensionContext): void {
 
 function webviewLocalResourceRoots(context: vscode.ExtensionContext): vscode.Uri[] {
   const roots = [vscode.Uri.joinPath(context.extensionUri, "dist")];
-  for (const extension of vscode.extensions.all) {
-    const contributes = asRecord((extension.packageJSON as Record<string, unknown>).contributes);
-    if (Array.isArray(contributes?.iconThemes)) {
-      roots.push(extension.extensionUri);
-    }
+
+  const iconThemeContribution = findActiveIconThemeContribution();
+  if (iconThemeContribution) {
+    roots.push(vscode.Uri.file(iconThemeContribution.extensionPath));
   }
+
   return roots;
 }
 
@@ -564,14 +579,22 @@ function shouldProbeTreeChildFolders(): boolean {
     .get<boolean>("treeProbeChildFolders", false);
 }
 
-async function refreshIconThemeForActiveWebviews(): Promise<void> {
+async function refreshIconThemeForActiveWebviews(context: vscode.ExtensionContext): Promise<void> {
   if (activePanel) {
+    activePanel.webview.options = {
+      enableScripts: true,
+      localResourceRoots: webviewLocalResourceRoots(context)
+    };
     await activePanel.webview.postMessage({
       command: "iconThemeChanged",
       iconTheme: await loadIconTheme(activePanel.webview)
     });
   }
   if (activeSidebarView) {
+    activeSidebarView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: webviewLocalResourceRoots(context)
+    };
     await activeSidebarView.webview.postMessage({
       command: "iconThemeChanged",
       iconTheme: await loadIconTheme(activeSidebarView.webview)
@@ -597,48 +620,105 @@ async function loadIconTheme(webview: vscode.Webview): Promise<IconThemePayload 
     const manifestPath = path.isAbsolute(contribution.themePath)
       ? contribution.themePath
       : path.join(contribution.extensionPath, contribution.themePath);
-    const manifest = JSON.parse(
-      await fs.promises.readFile(manifestPath, "utf8")
-    ) as Record<string, unknown>;
-    const manifestDir = path.dirname(manifestPath);
-    const iconDefinitions = asRecord(manifest.iconDefinitions);
 
-    const resolveIcon = (definitionId: unknown): string | undefined => {
-      if (typeof definitionId !== "string") return undefined;
-      if (!iconDefinitions) return undefined;
-      const definition = asRecord(iconDefinitions[definitionId]);
-      const iconPath = definition && typeof definition.iconPath === "string"
-        ? definition.iconPath
-        : undefined;
+    const cached = await loadCachedIconTheme(manifestPath);
+    if (!cached) return undefined;
+
+    const toWebviewUri = (iconPath: string | undefined): string | undefined => {
       if (!iconPath) return undefined;
       return webview
-        .asWebviewUri(vscode.Uri.file(path.resolve(manifestDir, iconPath)))
+        .asWebviewUri(vscode.Uri.file(iconPath))
         .toString();
     };
 
-    const resolveIconMap = (value: unknown): Record<string, string> => {
-      const source = asRecord(value);
-      if (!source) return {};
+    const toWebviewUriMap = (source: Record<string, string>): Record<string, string> => {
       const result: Record<string, string> = {};
-      for (const [key, definitionId] of Object.entries(source)) {
-        const iconUri = resolveIcon(definitionId);
+      for (const [key, iconPath] of Object.entries(source)) {
+        const iconUri = toWebviewUri(iconPath);
         if (iconUri) {
-          result[key.toLocaleLowerCase()] = iconUri;
+          result[key] = iconUri;
         }
       }
       return result;
     };
 
     return {
-      file: resolveIcon(manifest.file),
-      folder: resolveIcon(manifest.folder),
-      fileExtensions: resolveIconMap(manifest.fileExtensions),
-      fileNames: resolveIconMap(manifest.fileNames),
-      folderNames: resolveIconMap(manifest.folderNames)
+      file: toWebviewUri(cached.file),
+      folder: toWebviewUri(cached.folder),
+      fileExtensions: toWebviewUriMap(cached.fileExtensions),
+      fileNames: toWebviewUriMap(cached.fileNames),
+      folderNames: toWebviewUriMap(cached.folderNames)
     };
   } catch {
     return undefined;
   }
+}
+
+async function loadCachedIconTheme(
+  manifestPath: string
+): Promise<CachedIconThemePayload | undefined> {
+  const cacheKey = path.resolve(manifestPath);
+  if (iconThemeCache.has(cacheKey)) {
+    return iconThemeCache.get(cacheKey);
+  }
+
+  try {
+    const manifest = JSON.parse(
+      await fs.promises.readFile(manifestPath, "utf8")
+    ) as Record<string, unknown>;
+    const manifestDir = path.dirname(manifestPath);
+    const iconDefinitions = asRecord(manifest.iconDefinitions);
+
+    const resolveIconPath = (definitionId: unknown): string | undefined => {
+      if (typeof definitionId !== "string") return undefined;
+      if (!iconDefinitions) return undefined;
+      const definition = asRecord(iconDefinitions[definitionId]);
+      const iconPath = definition && typeof definition.iconPath === "string"
+        ? definition.iconPath
+        : undefined;
+      return iconPath ? path.resolve(manifestDir, iconPath) : undefined;
+    };
+
+    const resolveIconPathMap = (value: unknown): Record<string, string> => {
+      const source = asRecord(value);
+      if (!source) return {};
+      const result: Record<string, string> = {};
+      for (const [key, definitionId] of Object.entries(source)) {
+        const iconPath = resolveIconPath(definitionId);
+        if (iconPath) {
+          result[key.toLocaleLowerCase()] = iconPath;
+        }
+      }
+      return result;
+    };
+
+    const cached: CachedIconThemePayload = {
+      file: resolveIconPath(manifest.file),
+      folder: resolveIconPath(manifest.folder),
+      fileExtensions: resolveIconPathMap(manifest.fileExtensions),
+      fileNames: resolveIconPathMap(manifest.fileNames),
+      folderNames: resolveIconPathMap(manifest.folderNames)
+    };
+    iconThemeCache.set(cacheKey, cached);
+    return cached;
+  } catch {
+    iconThemeCache.set(cacheKey, undefined);
+    return undefined;
+  }
+}
+
+function findActiveIconThemeContribution():
+  | { extensionPath: string; themePath: string }
+  | undefined {
+  const mode = vscode.workspace
+    .getConfiguration("simpleFileExplorer")
+    .get<string>("iconThemeMode", "auto");
+  if (mode !== "auto") return undefined;
+
+  const themeId = vscode.workspace
+    .getConfiguration("workbench")
+    .get<string>("iconTheme");
+  return themeId ? findIconThemeContribution(themeId) : undefined;
 }
 
 function findIconThemeContribution(
@@ -972,30 +1052,55 @@ async function isExistingDirectory(directoryPath: string): Promise<boolean> {
 }
 
 async function loadMetadata(panel: ExplorerWebviewHost, paths: string[]): Promise<void> {
-  const uniquePaths = [...new Set(paths)].slice(0, 100);
-  const results: Array<{ path: string; size?: number; modified?: number }> = [];
-  const concurrency = 16;
-  let cursor = 0;
-
-  async function worker(): Promise<void> {
-    while (cursor < uniquePaths.length) {
-      const index = cursor++;
-      const itemPath = uniquePaths[index];
-      try {
-        const stat = await fs.promises.stat(itemPath);
-        results.push({
-          path: itemPath,
-          size: stat.size,
-          modified: stat.mtimeMs
-        });
-      } catch {
-        results.push({ path: itemPath });
-      }
-    }
-  }
-
-  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+  const uniquePaths = [...new Set(paths)].slice(0, METADATA_BATCH_LIMIT);
+  const results = await Promise.all(uniquePaths.map((itemPath) => queueMetadataStat(itemPath)));
   await panel.webview.postMessage({ command: "metadata", items: results });
+}
+
+function queueMetadataStat(itemPath: string): Promise<{ path: string; size?: number; modified?: number }> {
+  const cacheKey = path.resolve(itemPath);
+  const existing = pendingMetadataStats.get(cacheKey);
+  if (existing) return existing;
+
+  const pending = new Promise<{ path: string; size?: number; modified?: number }>((resolve) => {
+    const run = (): void => {
+      activeMetadataStats += 1;
+      void statMetadata(itemPath)
+        .then(resolve)
+        .finally(() => {
+          activeMetadataStats -= 1;
+          pendingMetadataStats.delete(cacheKey);
+          runQueuedMetadataStats();
+        });
+    };
+
+    metadataStatQueue.push(run);
+    runQueuedMetadataStats();
+  });
+  pendingMetadataStats.set(cacheKey, pending);
+  return pending;
+}
+
+function runQueuedMetadataStats(): void {
+  while (
+    activeMetadataStats < METADATA_STAT_CONCURRENCY &&
+    metadataStatQueue.length > 0
+  ) {
+    metadataStatQueue.shift()!();
+  }
+}
+
+async function statMetadata(itemPath: string): Promise<{ path: string; size?: number; modified?: number }> {
+  try {
+    const stat = await fs.promises.stat(itemPath);
+    return {
+      path: itemPath,
+      size: stat.size,
+      modified: stat.mtimeMs
+    };
+  } catch {
+    return { path: itemPath };
+  }
 }
 
 async function searchRecursively(
@@ -1008,6 +1113,7 @@ async function searchRecursively(
   const rootPath = normalizeInputPath(requestedPath);
   const query = rawQuery.trim();
   const matchesQuery = createNameMatcher(query);
+  const ignoredDirectories = searchIgnoredDirectories();
   const controller = beginRequest(requestId);
 
   try {
@@ -1050,7 +1156,7 @@ async function searchRecursively(
           if (
             isDirectory &&
             !entry.isSymbolicLink() &&
-            !SEARCH_IGNORED_DIRECTORIES.has(entry.name)
+            !ignoredDirectories.has(entry.name)
           ) {
             pendingDirectories.push(itemPath);
           }
@@ -1108,6 +1214,37 @@ async function searchRecursively(
   } finally {
     finishRequest(requestId, controller);
   }
+}
+
+function searchIgnoredDirectories(): Set<string> {
+  const names = new Set(DEFAULT_SEARCH_IGNORED_DIRECTORIES);
+  for (const configKey of SEARCH_EXCLUDE_CONFIG_KEYS) {
+    const excluded = vscode.workspace
+      .getConfiguration()
+      .get<Record<string, boolean | { when?: string }>>(configKey, {});
+    for (const [pattern, value] of Object.entries(excluded)) {
+      if (!value) continue;
+      const directoryName = directoryNameFromExcludePattern(pattern);
+      if (directoryName) {
+        names.add(directoryName);
+      }
+    }
+  }
+  return names;
+}
+
+function directoryNameFromExcludePattern(pattern: string): string | undefined {
+  const normalized = pattern.replaceAll("\\", "/").replace(/\/+$/, "");
+  if (!normalized || normalized.includes("{") || normalized.includes("}")) {
+    return undefined;
+  }
+
+  const segments = normalized.split("/").filter(Boolean);
+  const last = segments[segments.length - 1];
+  if (!last || last.includes("*") || last.includes("?")) {
+    return undefined;
+  }
+  return last;
 }
 
 function createNameMatcher(query: string): (name: string) => boolean {
@@ -1245,12 +1382,25 @@ async function deleteItems(
   );
   if (answer !== action) return;
 
-  for (const itemPath of paths) {
-    await vscode.workspace.fs.delete(vscode.Uri.file(itemPath), {
-      recursive: true,
-      useTrash: !permanent
-    });
-  }
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: permanent ? "Deleting items" : "Moving items to trash",
+      cancellable: false
+    },
+    async (progress) => {
+      const increment = paths.length > 0 ? 100 / paths.length : 100;
+      for (const itemPath of paths) {
+        progress.report({ message: path.basename(itemPath) });
+        await vscode.workspace.fs.delete(vscode.Uri.file(itemPath), {
+          recursive: true,
+          useTrash: !permanent
+        });
+        progress.report({ increment });
+      }
+    }
+  );
+
   await panel.webview.postMessage({
     command: "operationComplete",
     path: path.dirname(paths[0]),
@@ -1265,35 +1415,50 @@ async function pasteItems(
   cut: boolean
 ): Promise<void> {
   if (!paths.length) return;
-  let lastTarget: string | undefined;
+  const lastTarget = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: cut ? "Moving items" : "Copying items",
+      cancellable: false
+    },
+    async (progress) => {
+      let lastTarget: string | undefined;
+      const increment = paths.length > 0 ? 100 / paths.length : 100;
 
-  for (const source of paths) {
-    if (cut && path.resolve(path.dirname(source)) === path.resolve(destination)) {
-      lastTarget = source;
-      continue;
-    }
-    const relativeDestination = path.relative(path.resolve(source), path.resolve(destination));
-    if (
-      relativeDestination &&
-      !relativeDestination.startsWith("..") &&
-      !path.isAbsolute(relativeDestination)
-    ) {
-      throw new Error(`Cannot copy "${path.basename(source)}" into itself.`);
-    }
-    const target = await findAvailableDestination(destination, path.basename(source));
-    if (cut) {
-      try {
-        await fs.promises.rename(source, target);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
-        await fs.promises.cp(source, target, { recursive: true, errorOnExist: true });
-        await fs.promises.rm(source, { recursive: true, force: true });
+      for (const source of paths) {
+        progress.report({ message: path.basename(source) });
+        if (cut && path.resolve(path.dirname(source)) === path.resolve(destination)) {
+          lastTarget = source;
+          progress.report({ increment });
+          continue;
+        }
+        const relativeDestination = path.relative(path.resolve(source), path.resolve(destination));
+        if (
+          relativeDestination &&
+          !relativeDestination.startsWith("..") &&
+          !path.isAbsolute(relativeDestination)
+        ) {
+          throw new Error(`Cannot copy "${path.basename(source)}" into itself.`);
+        }
+        const target = await findAvailableDestination(destination, path.basename(source));
+        if (cut) {
+          try {
+            await fs.promises.rename(source, target);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+            await fs.promises.cp(source, target, { recursive: true, errorOnExist: true });
+            await fs.promises.rm(source, { recursive: true, force: true });
+          }
+        } else {
+          await fs.promises.cp(source, target, { recursive: true, errorOnExist: true });
+        }
+        lastTarget = target;
+        progress.report({ increment });
       }
-    } else {
-      await fs.promises.cp(source, target, { recursive: true, errorOnExist: true });
+
+      return lastTarget;
     }
-    lastTarget = target;
-  }
+  );
 
   await panel.webview.postMessage({
     command: "operationComplete",

@@ -1,5 +1,22 @@
 # Change Log
 
+## 0.1.5
+
+- Improved editor folder-tree synchronization so navigating in the main file
+  view lazily expands the matching tree path without scanning sibling folders.
+- Added double-click and keyboard handling for tree folder expand/collapse while
+  keeping single-click navigation immediate.
+- Reduced large-folder overhead by avoiding repeated full sorts during streamed
+  directory loading and by de-duplicating concurrent metadata reads.
+- Narrowed icon-theme resource access to the active icon theme extension and
+  cached parsed icon-theme manifests.
+- Added progress notifications for copy, move, trash, and permanent-delete
+  operations.
+- Reused VS Code `search.exclude` and `files.exclude` settings for recursive
+  search directory skipping, with only `.git` skipped by default.
+- Split common webview path, formatting, and matcher helpers into focused
+  modules and added lightweight utility tests.
+
 ## 0.1.4
 
 - Standardized user-facing labels on `Simple File Explorer`.

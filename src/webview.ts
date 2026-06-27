@@ -1,4 +1,13 @@
 import "./webview.css";
+import { formatSize } from "./webviewFormat";
+import { createNameMatcher } from "./webviewMatcher";
+import {
+  basenameForPlatform,
+  dirnameForPlatform,
+  isPathInsideOrEqualForPlatform,
+  normalizeForComparisonForPlatform,
+  splitPathForPlatform
+} from "./webviewPath";
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void;
@@ -111,10 +120,14 @@ let clipboardPaths: string[] = [];
 let clipboardCut = false;
 let selectionDrag: SelectionDragState | undefined;
 let suppressedDragClick: SuppressedDragClick | undefined;
+let keyboardTarget: "items" | "tree" = "items";
 let treeVisible = false;
 let treeShowHidden = false;
 let treeProbeChildFolders = false;
 let preferredTreeExpandedPaths = new Set<string>();
+let lastTreeClick: { path: string; time: number } | undefined;
+let focusedTreePath: string | undefined;
+let pendingTreeRevealPath: string | undefined;
 const treeNodes = new Map<string, TreeNodeState>();
 const treeRequests = new Map<string, string>();
 
@@ -483,7 +496,9 @@ window.addEventListener("keydown", (event) => {
     renameSelection();
   } else if (event.key === "Enter") {
     event.preventDefault();
-    openSelectedItem();
+    if (!toggleKeyboardTreeNode()) {
+      openSelectedItem();
+    }
   } else if (!event.ctrlKey && !event.metaKey && !event.altKey && isTypeAheadCharacter(event.key)) {
     event.preventDefault();
     selectByTypeAhead(event.key);
@@ -495,6 +510,9 @@ window.addEventListener("pointerdown", (event) => {
   }
 });
 elements.viewport.addEventListener("pointerdown", beginSelectionDrag);
+elements.viewport.addEventListener("pointerdown", () => {
+  keyboardTarget = "items";
+});
 elements.viewport.addEventListener("click", clearSelectionFromEmptyClick);
 elements.viewport.addEventListener("contextmenu", showViewportContextMenu);
 window.addEventListener("pointermove", updateSelectionDrag);
@@ -603,10 +621,11 @@ function handleHostMessage(message: Record<string, unknown>): void {
       const tab = tabForRequest(String(message.requestId));
       if (!tab) return;
       tab.items.push(...(message.items as DirectoryItem[]));
-      if (tab.items.length <= 1000) {
+      const sortDuringLoad = tab.items.length <= 1000;
+      if (sortDuringLoad) {
         sortItems(tab.items, tab);
       }
-      applyLocalFilter(tab);
+      applyLocalFilter(tab, sortDuringLoad);
       if (
         tab.pendingRevealPath &&
         tab.items.some(
@@ -624,6 +643,8 @@ function handleHostMessage(message: Record<string, unknown>): void {
       tab.loading = false;
       sortItems(tab.items, tab);
       applyLocalFilter(tab);
+      updateTreeNodeChildHintFromDirectory(tab);
+      revealActivePathInTree(tab.path);
       cleanSelection(tab);
       revealSelectedItem(tab, !tab.preserveFocusAfterReveal);
       completeExternalNavigation(tab);
@@ -784,6 +805,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
           }
         }
       }
+      continueTreePathReveal();
       scheduleRender();
       break;
     }
@@ -1015,26 +1037,16 @@ function runSearch(): void {
   scheduleRender();
 }
 
-function applyLocalFilter(tab: ExplorerTab): void {
+function applyLocalFilter(tab: ExplorerTab, sort = true): void {
   const matchesQuery = createNameMatcher(tab.searchQuery);
   tab.filteredItems = tab.items.filter(
     (item) =>
       (tab.showHidden || !item.name.startsWith(".")) &&
       (!tab.searchQuery || matchesQuery(item.name))
   );
-  sortItems(tab.filteredItems, tab);
-}
-
-function createNameMatcher(query: string): (name: string) => boolean {
-  if (!query.includes("*") && !query.includes("?")) {
-    const normalized = query.toLocaleLowerCase();
-    return (name) => name.toLocaleLowerCase().includes(normalized);
+  if (sort) {
+    sortItems(tab.filteredItems, tab);
   }
-
-  const escaped = query.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  const expression = escaped.replaceAll("*", ".*").replaceAll("?", ".");
-  const regex = new RegExp(`^${expression}$`, "i");
-  return (name) => regex.test(name);
 }
 
 function cancelTabRequests(tab: ExplorerTab): void {
@@ -1333,6 +1345,7 @@ function toggleTreePane(): void {
     } else {
       loadExpandedTreeRoots();
     }
+    revealActivePathInTree(activeTab().path);
   }
   saveTreePreferences();
   scheduleRender();
@@ -1367,11 +1380,81 @@ function loadExpandedTreeRoots(): void {
   }
 }
 
+function revealActivePathInTree(targetPath: string): void {
+  if (viewKind !== "editor" || !treeVisible) return;
+  pendingTreeRevealPath = targetPath;
+  continueTreePathReveal();
+}
+
+function continueTreePathReveal(): void {
+  if (!pendingTreeRevealPath || viewKind !== "editor" || !treeVisible) return;
+  const ancestorPaths = treeAncestorPathsForReveal(pendingTreeRevealPath);
+  if (ancestorPaths.length === 0) {
+    pendingTreeRevealPath = undefined;
+    return;
+  }
+
+  let changed = false;
+  for (const ancestorPath of ancestorPaths) {
+    const node = treeNode(ancestorPath);
+    if (!node || !node.isDirectory) return;
+
+    if (!node.expanded) {
+      node.expanded = true;
+      preferredTreeExpandedPaths.add(normalizeForComparison(node.path));
+      changed = true;
+    }
+
+    if (!node.loaded) {
+      if (!node.loading) {
+        requestTreeDirectory(node);
+        changed = true;
+      }
+      if (changed) {
+        saveTreePreferences();
+        scheduleRender();
+      }
+      return;
+    }
+  }
+
+  pendingTreeRevealPath = undefined;
+  if (changed) {
+    saveTreePreferences();
+    scheduleRender();
+  }
+}
+
+function treeAncestorPathsForReveal(targetPath: string): string[] {
+  const targetRoot = treeRootNodes()
+    .filter((root) => isPathInsideOrEqual(targetPath, root.path))
+    .sort((left, right) => right.path.length - left.path.length)[0];
+  if (!targetRoot) return [];
+
+  const rootPath = targetRoot.path;
+  if (normalizeForComparison(targetPath) === normalizeForComparison(rootPath)) {
+    return [];
+  }
+
+  const ancestors: string[] = [];
+  let current = targetPath;
+  while (normalizeForComparison(current) !== normalizeForComparison(rootPath)) {
+    const parent = dirname(current);
+    if (normalizeForComparison(parent) === normalizeForComparison(current)) {
+      return [];
+    }
+    ancestors.push(parent);
+    current = parent;
+  }
+  return ancestors.reverse();
+}
+
 function syncTreeHiddenMode(showHidden: boolean): void {
   if (treeShowHidden === showHidden) return;
   treeShowHidden = showHidden;
   invalidateTreeNodes();
   loadExpandedTreeRoots();
+  continueTreePathReveal();
 }
 
 function invalidateTreeNodes(): void {
@@ -1433,11 +1516,36 @@ function appendTreeNode(
   const canExpand = node.loaded ? node.children.length > 0 : node.hasChildren !== false;
 
   const row = document.createElement("button");
+  row.type = "button";
   row.className = `tree-item directory${isActive ? " active" : ""}${containsActive ? " contains-active" : ""}`;
   row.style.setProperty("--tree-depth", String(depth));
   row.title = node.path;
   row.dataset.path = node.path;
-  row.addEventListener("click", () => navigate(node.path));
+  row.addEventListener("click", (event) => {
+    keyboardTarget = "tree";
+    focusedTreePath = node.path;
+    const now = performance.now();
+    const isRepeatedClick =
+      lastTreeClick?.path === node.path && now - lastTreeClick.time <= 400;
+    lastTreeClick = { path: node.path, time: now };
+
+    if (isRepeatedClick) {
+      event.preventDefault();
+      if (canToggleTreeNode(node)) {
+        toggleTreeNode(node);
+      }
+      return;
+    }
+
+    navigate(node.path);
+  });
+  row.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+  });
+  row.addEventListener("focus", () => {
+    keyboardTarget = "tree";
+    focusedTreePath = node.path;
+  });
 
   const toggle = document.createElement("span");
   toggle.className = `tree-toggle${canExpand ? "" : " empty"}`;
@@ -1485,6 +1593,20 @@ function appendTreeNode(
     const childNode = ensureTreeNode(child);
     appendTreeNode(nodes, childNode, depth + 1, activePath);
   }
+}
+
+function toggleKeyboardTreeNode(): boolean {
+  if (keyboardTarget !== "tree" || viewKind !== "editor" || !treeVisible || !focusedTreePath) {
+    return false;
+  }
+  const node = treeNode(focusedTreePath);
+  if (!node || !canToggleTreeNode(node)) return false;
+  toggleTreeNode(node);
+  return true;
+}
+
+function canToggleTreeNode(node: TreeNodeState): boolean {
+  return node.loaded ? node.children.length > 0 : node.hasChildren !== false;
 }
 
 function toggleTreeNode(node: TreeNodeState): void {
@@ -1535,6 +1657,18 @@ function refreshTreeNode(nodePath: string): void {
   }
 }
 
+function updateTreeNodeChildHintFromDirectory(tab: ExplorerTab): void {
+  if (viewKind !== "editor") return;
+  const node = treeNode(tab.path);
+  if (!node || !node.isDirectory || node.loaded) return;
+  const hasVisibleChildFolder = tab.items.some(
+    (item) => item.isDirectory && (tab.showHidden || !item.name.startsWith("."))
+  );
+  if (hasVisibleChildFolder || node.hasChildren !== false) {
+    node.hasChildren = hasVisibleChildFolder;
+  }
+}
+
 function ensureTreeNode(item: DirectoryItem): TreeNodeState {
   const key = treeKey(item.path);
   const existing = treeNodes.get(key);
@@ -1542,7 +1676,9 @@ function ensureTreeNode(item: DirectoryItem): TreeNodeState {
     existing.name = item.name;
     existing.isDirectory = item.isDirectory;
     existing.isSymbolicLink = item.isSymbolicLink;
-    existing.hasChildren = item.hasChildren;
+    if (item.hasChildren !== undefined) {
+      existing.hasChildren = item.hasChildren;
+    }
     return existing;
   }
 
@@ -1720,31 +1856,7 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
 }
 
 function splitPath(value: string): Array<{ label: string; path: string }> {
-  if (platform === "win32") {
-    const normalized = value.replaceAll("/", "\\");
-    const rootMatch = normalized.match(/^(?:[A-Za-z]:\\|\\\\[^\\]+\\[^\\]+\\?)/);
-    const root = rootMatch?.[0] ?? "";
-    const remainder = normalized.slice(root.length).split("\\").filter(Boolean);
-    const result: Array<{ label: string; path: string }> = [];
-    let current = root || normalized;
-    if (root) {
-      result.push({ label: root.replace(/\\$/, ""), path: root });
-    }
-    for (const segment of remainder) {
-      current = current.endsWith("\\") ? `${current}${segment}` : `${current}\\${segment}`;
-      result.push({ label: segment, path: current });
-    }
-    return result;
-  }
-
-  const segments = value.split("/").filter(Boolean);
-  const result = [{ label: "/", path: "/" }];
-  let current = "";
-  for (const segment of segments) {
-    current += `/${segment}`;
-    result.push({ label: segment, path: current });
-  }
-  return result;
+  return splitPathForPlatform(value, platform);
 }
 
 function sortItems(items: DirectoryItem[], tab: ExplorerTab): void {
@@ -1807,11 +1919,7 @@ function getWorkspacePath(currentPath?: string): string {
 }
 
 function isPathInsideOrEqual(candidate: string, root: string): boolean {
-  const normalizedCandidate = normalizeForComparison(candidate);
-  const normalizedRoot = normalizeForComparison(root);
-  if (normalizedCandidate === normalizedRoot) return true;
-  const separator = platform === "win32" ? "\\" : "/";
-  return normalizedCandidate.startsWith(`${normalizedRoot}${separator}`);
+  return isPathInsideOrEqualForPlatform(candidate, root, platform);
 }
 
 function cleanSelection(tab: ExplorerTab): void {
@@ -1848,22 +1956,11 @@ function tabForSearchRequest(requestId: string): ExplorerTab | undefined {
 }
 
 function dirname(value: string): string {
-  const normalized = value.replace(/[\\/]+$/, "");
-  if (platform === "win32") {
-    if (/^[A-Za-z]:$/.test(normalized)) return `${normalized}\\`;
-    const index = Math.max(normalized.lastIndexOf("\\"), normalized.lastIndexOf("/"));
-    if (index <= 2 && /^[A-Za-z]:/.test(normalized)) return `${normalized.slice(0, 2)}\\`;
-    return index > 0 ? normalized.slice(0, index) : value;
-  }
-  if (!normalized || normalized === "/") return "/";
-  const index = normalized.lastIndexOf("/");
-  return index <= 0 ? "/" : normalized.slice(0, index);
+  return dirnameForPlatform(value, platform);
 }
 
 function basename(value: string): string {
-  const normalized = value.replace(/[\\/]+$/, "");
-  const index = Math.max(normalized.lastIndexOf("\\"), normalized.lastIndexOf("/"));
-  return normalized.slice(index + 1);
+  return basenameForPlatform(value);
 }
 
 function createFileIcon(item: DirectoryItem): Element {
@@ -1962,22 +2059,8 @@ function iconPathsFor(item: DirectoryItem): string[] {
   ];
 }
 
-function formatSize(size: number | undefined): string {
-  if (size === undefined) return "";
-  if (size < 1024) return `${size} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let value = size / 1024;
-  let unit = units[0];
-  for (let index = 1; index < units.length && value >= 1024; index += 1) {
-    value /= 1024;
-    unit = units[index];
-  }
-  return `${value.toFixed(value >= 10 ? 1 : 2)} ${unit}`;
-}
-
 function normalizeForComparison(value: string): string {
-  const normalized = value.replace(/[\\/]+$/, "");
-  return platform === "win32" ? normalized.toLocaleLowerCase() : normalized;
+  return normalizeForComparisonForPlatform(value, platform);
 }
 
 function randomId(): string {

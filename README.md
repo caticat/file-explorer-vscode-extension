@@ -54,13 +54,21 @@ already open.
 - A shared view-mode preference that persists across tabs and VS Code sessions.
 - Optional editor-only folder tree for navigation, with a collapse-all control
   and persisted visibility/expanded state.
+- The editor folder tree lazily follows the active folder path from the main
+  file view without expanding sibling folders.
+- Tree folders can be expanded or collapsed from the arrow, by double-clicking,
+  or by pressing `Enter` after the tree was the most recent navigation target.
 - Large-icon view keeps its column layout when the editor folder tree is shown
   or hidden.
 - Automatically reuses the current VS Code file icon theme when possible, with
   built-in fallback icons.
 - Streaming directory enumeration and virtualized rendering for large folders.
 - Visible-row metadata loading instead of running `stat` for every file at once.
+- Metadata reads are de-duplicated and concurrency-limited during large-folder
+  browsing.
 - Current-folder filtering and cancellable recursive filename search.
+- Recursive search reuses VS Code `search.exclude` and `files.exclude`
+  directory exclusions when they can be safely interpreted as directory names.
 - Persistent recursive-search mode and basic filename wildcards (`*` and `?`).
 - Windows and Linux path handling.
 - Automatic refresh using debounced, non-recursive watchers for visible tabs.
@@ -72,6 +80,8 @@ already open.
   and `Ctrl+A` / `Cmd+A`.
 - Copy, cut, paste, and empty-area paste from keyboard shortcuts or the context
   menu.
+- Copy, move, trash, and permanent-delete operations show VS Code progress
+  notifications for longer operations.
 - Sortable name, modified-time, and size columns.
 - Right-click menu toggles for the modified-time and size columns.
 - Per-tab hidden dot-file visibility.
@@ -86,6 +96,7 @@ already open.
 ```bash
 npm install
 npm run compile
+npm test
 ```
 
 Press `F5` in VS Code and run `Simple File Explorer: Open` in the Extension Development
@@ -108,6 +119,8 @@ Host.
 
 The editor-only folder tree is lazy loaded. It reads child folders only when a
 tree node is expanded, and it does not recursively expand the full workspace.
+When the main file view navigates to a folder, the tree lazily expands only the
+ancestor chain required to reveal that folder.
 By default the tree does not probe child folders before expansion, so unloaded
 folders show an expand arrow and folders without visible child folders lose the
 arrow after they are opened. Enable `simpleFileExplorer.treeProbeChildFolders`
@@ -177,14 +190,19 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 详细信息和大图标两种视图，并在所有页签和下次启动时继承视图设置。
 - 大图标视图中，选中的文件会展开显示完整文件名，多选时每个选中项都会展开。
 - editor 模式可开启左侧文件夹树用于导航，支持一键合并，并会保存显示和展开状态。
+- 主文件区切换目录时，左侧文件夹树会懒加载并展开当前路径的祖先链，不会展开旁支目录。
+- 树形目录可以通过箭头、双击，或在最近操作目标为树时按 `Enter` 展开和折叠。
 - editor 模式下切换左侧文件夹树时，大图标视图会保持正确列数。
 - 默认尝试复用当前 VS Code 文件图标主题，失败时回退到内置图标。
 - 大目录流式读取、虚拟滚动和可见区域元数据加载。
+- 元数据读取会去重并限制并发，降低大目录浏览时的文件系统压力。
 - 当前目录搜索和可取消的递归文件名搜索。
+- 递归搜索会复用 VS Code 的 `search.exclude` 和 `files.exclude` 中可安全识别的目录排除规则。
 - 递归搜索模式会跨目录、页签和 VS Code 启动保留。
 - 文件名搜索支持基础通配符：`*` 匹配任意字符，`?` 匹配单个字符。
 - 新建文件后会自动打开并聚焦。
 - 新建、重命名、删除到回收站、永久删除、复制、剪切和粘贴。
+- 复制、移动、删除到回收站和永久删除会显示 VS Code 进度提示。
 - 支持 `Ctrl` 点击、`Shift` 点击、鼠标框选和 `Ctrl+A` 全选。
 - 支持右键菜单复制、剪切、粘贴、重命名、删除，以及空白区域粘贴。
 - 按名称/修改时间/大小排序、隐藏点文件切换。
@@ -225,6 +243,10 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 子目录，因此未加载的文件夹会显示展开箭头；如果展开后没有可见子目录，箭头
 会自动消失。开启 `simpleFileExplorer.treeProbeChildFolders` 后，加载某层
 目录时会额外检查可见子文件夹的下一层，从而提前隐藏这些箭头。
+
+当主文件区导航到某个目录时，树形导航会只沿当前路径的祖先链逐级展开。
+如果某一级还没有加载，只会读取这一层，等返回后继续展开下一层，不会扫描
+兄弟目录。
 
 隐藏文件夹树时，不会渲染树，也不会发起树形目录读取。editor 模式下会保留
 webview 上下文，切换到文件编辑器再回来时不会重置树状态；代价是隐藏时会保留

@@ -2,7 +2,7 @@
   "name": "workspace-file-explorer",
   "displayName": "Simple File Explorer",
   "description": "A tabbed, high-performance file explorer for Visual Studio Code.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "panjie039",
   "repository": {
     "type": "git",
@@ -148,6 +148,7 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "check": "tsc --noEmit",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/webviewUtils.test.mjs",
     "compile": "npm run check && node esbuild.js",
     "watch": "node esbuild.js --watch",
     "package": "npm run check && node esbuild.js --production"

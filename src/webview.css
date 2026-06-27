@@ -114,6 +114,10 @@ button {
   background: var(--vscode-list-hoverBackground);
 }
 
+.tree-item:focus {
+  outline: none;
+}
+
 .tree-item.active {
   color: var(--vscode-list-activeSelectionForeground);
   background: var(--vscode-list-activeSelectionBackground);
