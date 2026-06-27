@@ -170,8 +170,8 @@ export function activate(context: vscode.ExtensionContext): void {
     25
   );
   statusBarItem.text = "$(folder-opened)";
-  statusBarItem.name = "Workspace File Explorer";
-  statusBarItem.tooltip = "Toggle Workspace File Explorer";
+  statusBarItem.name = "Simple File Explorer";
+  statusBarItem.tooltip = "Toggle Simple File Explorer";
   statusBarItem.command = "workspaceFileExplorer.toggle";
   updateStatusBarVisibility();
   context.subscriptions.push(statusBarItem);
@@ -181,7 +181,7 @@ function createExplorerPanel(context: vscode.ExtensionContext): void {
   activePanelReady = false;
   activePanel = vscode.window.createWebviewPanel(
     "workspaceFileExplorer",
-    "File Explorer",
+    "Simple File Explorer",
     vscode.ViewColumn.Active,
     {
       enableScripts: true,
@@ -1198,7 +1198,15 @@ async function createItem(
   } else {
     await fs.promises.writeFile(target, "", { flag: "wx" });
   }
-  await panel.webview.postMessage({ command: "operationComplete", path: directoryPath, revealPath: target });
+  await panel.webview.postMessage({
+    command: "operationComplete",
+    path: directoryPath,
+    revealPath: target,
+    preserveFocus: !isDirectory
+  });
+  if (!isDirectory) {
+    await openCreatedFile(target);
+  }
 }
 
 async function renameItem(panel: ExplorerWebviewHost, itemPath: string): Promise<void> {
@@ -1243,7 +1251,11 @@ async function deleteItems(
       useTrash: !permanent
     });
   }
-  await panel.webview.postMessage({ command: "operationComplete", path: path.dirname(paths[0]) });
+  await panel.webview.postMessage({
+    command: "operationComplete",
+    path: path.dirname(paths[0]),
+    focusViewport: true
+  });
 }
 
 async function pasteItems(
@@ -1351,6 +1363,15 @@ async function openFile(filePath: string): Promise<void> {
   });
 }
 
+async function openCreatedFile(filePath: string): Promise<void> {
+  const document = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    preserveFocus: false,
+    viewColumn: vscode.ViewColumn.Active
+  });
+}
+
 function normalizeInputPath(input: string): string {
   const trimmed = input.trim().replace(/^~(?=$|[\\/])/, os.homedir());
   if (!trimmed) {
@@ -1419,7 +1440,7 @@ function createWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): s
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
   <link rel="stylesheet" href="${styleUri}">
-  <title>File Explorer</title>
+  <title>Simple File Explorer</title>
 </head>
 <body>
   <div id="app"></div>

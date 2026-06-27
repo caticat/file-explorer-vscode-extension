@@ -3,9 +3,9 @@
 A clean-room VS Code extension that provides a Windows-style, tabbed file browser
 for Visual Studio Code.
 
-![File Explorer extension icon](assets/file-explorer.png)
+![Simple File Explorer extension icon](assets/file-explorer.png)
 
-## Opening File Explorer
+## Opening Simple File Explorer
 
 Use any of these methods:
 
@@ -26,7 +26,7 @@ already open.
 
 ## Demo
 
-![File Explorer usage demonstration](assets/file-explorer.gif)
+![Simple File Explorer usage demonstration](assets/file-explorer.gif)
 
 ## Current features
 
@@ -49,6 +49,8 @@ already open.
 - One initial tab per root folder in multi-root workspaces without saved state.
 - Back, forward, up, refresh, breadcrumbs, and manual path entry (`Ctrl+L`).
 - Detailed list and large-icon views.
+- Large-icon view expands selected filenames, including multi-selection, while
+  keeping unselected items compact.
 - A shared view-mode preference that persists across tabs and VS Code sessions.
 - Optional editor-only folder tree for navigation, with a collapse-all control
   and persisted visibility/expanded state.
@@ -64,6 +66,7 @@ already open.
 - Automatic refresh using debounced, non-recursive watchers for visible tabs.
 - Safe fallback to an existing parent or workspace root when an open directory
   is deleted.
+- New files open and focus automatically after creation.
 - New file, new folder, rename, move-to-trash, and permanent-delete operations.
 - Multi-selection with `Ctrl` / `Cmd` click, `Shift` click, mouse box selection,
   and `Ctrl+A` / `Cmd+A`.
@@ -85,7 +88,7 @@ npm install
 npm run compile
 ```
 
-Press `F5` in VS Code and run `File Explorer: Open` in the Extension Development
+Press `F5` in VS Code and run `Simple File Explorer: Open` in the Extension Development
 Host.
 
 ## Settings
@@ -157,7 +160,7 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 在 VS Code 自带 Explorer 中右键文件或目录，选择
   **Open in Simple File Explorer**。
 
-快捷键和命令会优先切换到已经打开的 File Explorer。默认 editor 模式会显示
+快捷键和命令会优先切换到已经打开的 Simple File Explorer。默认 editor 模式会显示
 底部状态栏按钮，并隐藏 Activity Bar 入口；切换到 sidebar 模式后则相反。
 
 ## 主要功能
@@ -172,6 +175,7 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 可按工作区恢复页签顺序、当前路径和活动页签。
 - 多根工作区在没有保存状态时，会为每个根目录创建一个初始页签。
 - 详细信息和大图标两种视图，并在所有页签和下次启动时继承视图设置。
+- 大图标视图中，选中的文件会展开显示完整文件名，多选时每个选中项都会展开。
 - editor 模式可开启左侧文件夹树用于导航，支持一键合并，并会保存显示和展开状态。
 - editor 模式下切换左侧文件夹树时，大图标视图会保持正确列数。
 - 默认尝试复用当前 VS Code 文件图标主题，失败时回退到内置图标。
@@ -179,6 +183,7 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 当前目录搜索和可取消的递归文件名搜索。
 - 递归搜索模式会跨目录、页签和 VS Code 启动保留。
 - 文件名搜索支持基础通配符：`*` 匹配任意字符，`?` 匹配单个字符。
+- 新建文件后会自动打开并聚焦。
 - 新建、重命名、删除到回收站、永久删除、复制、剪切和粘贴。
 - 支持 `Ctrl` 点击、`Shift` 点击、鼠标框选和 `Ctrl+A` 全选。
 - 支持右键菜单复制、剪切、粘贴、重命名、删除，以及空白区域粘贴。

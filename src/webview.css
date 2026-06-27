@@ -533,16 +533,18 @@ body.hide-modified-column.hide-size-column .file-item.list {
 }
 
 .file-item.grid {
-  height: 108px;
+  min-height: 124px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 7px;
   padding: 8px;
   background: transparent;
   border-radius: 7px;
+  position: relative;
+  z-index: 0;
 }
 
 .file-item:hover {
@@ -592,6 +594,23 @@ body.hide-modified-column.hide-size-column .file-item.list {
 .grid .file-name {
   width: 100%;
   text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.grid .file-item.selected,
+.grid .file-item:focus {
+  z-index: 2;
+}
+
+.grid .file-item.selected .file-name,
+.grid .file-item:focus .file-name {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
 }
 
 .file-modified,
@@ -814,7 +833,7 @@ body.sidebar-mode.hide-modified-column.hide-size-column .file-item.list {
 }
 
 body.sidebar-mode .file-item.grid {
-  height: 86px;
+  min-height: 96px;
   min-width: 68px;
   padding: 5px 4px;
 }

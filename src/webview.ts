@@ -45,6 +45,7 @@ interface ExplorerTab {
   selectionAnchorPath?: string;
   showHidden: boolean;
   preserveFocusAfterReveal?: boolean;
+  focusViewportAfterLoad?: boolean;
   sortKey: "name" | "modified" | "size";
   sortDirection: "asc" | "desc";
   externalNavigationId?: string;
@@ -208,7 +209,7 @@ app.innerHTML = `
           "M1.5 8s2.5-4 6.5-4 6.5 4 6.5 4-2.5 4-6.5 4S1.5 8 1.5 8ZM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"
         )}</button>
       </div>
-      <div class="sidebar-toolbar" role="group" aria-label="Sidebar file explorer actions">
+      <div class="sidebar-toolbar" role="group" aria-label="Sidebar Simple File Explorer actions">
         <div class="sidebar-toolbar-group sidebar-navigation-group">
           <button id="sidebar-back" class="icon-button" title="Back" aria-label="Back">${toolbarIcon(
             "M10.5 3.5L6 8l4.5 4.5M6.5 8H14"
@@ -271,7 +272,7 @@ app.innerHTML = `
   </div>
   <div id="context-menu" class="context-menu hidden" role="menu">
     <button id="reveal-system" role="menuitem">Reveal in System File Manager</button>
-    <button id="show-in-explorer" role="menuitem">Show in This File Explorer</button>
+    <button id="show-in-explorer" role="menuitem">Show in Simple File Explorer</button>
     <div id="item-menu-separator" class="menu-separator"></div>
     <button id="rename-item" role="menuitem">Rename</button>
     <button id="copy-items" role="menuitem">Copy</button>
@@ -626,8 +627,12 @@ function handleHostMessage(message: Record<string, unknown>): void {
       cleanSelection(tab);
       revealSelectedItem(tab, !tab.preserveFocusAfterReveal);
       completeExternalNavigation(tab);
+      if (tab.focusViewportAfterLoad && tab.id === activeTabId) {
+        requestAnimationFrame(() => elements.viewport.focus({ preventScroll: true }));
+      }
       tab.pendingRevealPath = undefined;
       tab.preserveFocusAfterReveal = false;
+      tab.focusViewportAfterLoad = false;
       tab.status = `${Number(message.count).toLocaleString()} items`;
       tab.requestId = undefined;
       scheduleRender();
@@ -672,6 +677,8 @@ function handleHostMessage(message: Record<string, unknown>): void {
     }
     case "operationComplete": {
       const changedPath = String(message.path);
+      const preserveFocus = message.preserveFocus === true;
+      const focusViewport = message.focusViewport === true;
       if (message.clearClipboard) {
         clipboardPaths = [];
         clipboardCut = false;
@@ -683,7 +690,8 @@ function handleHostMessage(message: Record<string, unknown>): void {
           tab.selectedPath = message.revealPath ? String(message.revealPath) : undefined;
           tab.selectedPaths = tab.selectedPath ? [tab.selectedPath] : [];
           tab.pendingRevealPath = tab.selectedPath;
-          loadDirectory(tab, false);
+          tab.focusViewportAfterLoad = focusViewport;
+          loadDirectory(tab, false, preserveFocus);
           refreshed = true;
         }
       }
@@ -692,7 +700,8 @@ function handleHostMessage(message: Record<string, unknown>): void {
         if (tab.searchMode && tab.recursiveSearch && tab.searchQuery) {
           runSearch();
         } else {
-          loadDirectory(tab, false);
+          tab.focusViewportAfterLoad = focusViewport;
+          loadDirectory(tab, false, preserveFocus);
         }
       }
       break;
@@ -1646,7 +1655,7 @@ function gridItemWidth(): number {
 }
 
 function gridRowHeight(): number {
-  return viewKind === "sidebar" ? 86 : 112;
+  return viewKind === "sidebar" ? 100 : 128;
 }
 
 function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {

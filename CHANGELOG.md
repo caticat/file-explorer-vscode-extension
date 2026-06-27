@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.1.4
+
+- Standardized user-facing labels on `Simple File Explorer`.
+- Open and focus newly created files immediately after creation.
+- Kept focus stable after deleting selected files from the explorer.
+- Expanded selected large-icon filenames, including multi-selection, while
+  keeping unselected large-icon labels compact.
+
 ## 0.1.3
 
 - Removed the default webview body padding so the explorer fills the editor and
