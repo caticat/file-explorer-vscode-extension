@@ -64,6 +64,7 @@ interface WorkspaceSession {
   version: 1;
   tabs: Array<{ path: string }>;
   activeTabIndex: number;
+  layoutMode?: "tabs" | "panes";
 }
 
 interface ListColumnPreferences {
@@ -166,6 +167,7 @@ app.innerHTML = `
       <button id="tile-tabs" class="icon-button" title="Tile tabs" aria-label="Tile tabs" aria-pressed="false">${toolbarIcon(
         "M2.5 2.5h5v11h-5v-11ZM9.5 2.5h4v4.5h-4V2.5ZM9.5 9h4v4.5h-4V9Z"
       )}</button>
+      <div id="tile-active-path" class="tile-active-path pane-mode-control" title=""></div>
       <span class="tabs-bar-separator pane-mode-control" aria-hidden="true"></span>
       <button id="tile-list-view" class="icon-button pane-mode-control" title="Details view" aria-label="Details view">${toolbarIcon(
         "M2 3.5h2v2H2v-2ZM6 4.5h8M2 7h2v2H2V7ZM6 8h8M2 10.5h2v2H2v-2ZM6 11.5h8"
@@ -324,6 +326,7 @@ const elements = {
   tabs: byId("tabs"),
   newTab: button("new-tab"),
   tileTabs: button("tile-tabs"),
+  tileActivePath: byId("tile-active-path"),
   tileListView: button("tile-list-view"),
   tileGridView: button("tile-grid-view"),
   tileToggleHidden: button("tile-toggle-hidden"),
@@ -890,6 +893,10 @@ function restoreOrCreateInitialTab(workspaceSession?: WorkspaceSession): void {
     ? Math.min(workspaceSession.activeTabIndex, tabs.length - 1)
     : 0;
   activeTabId = tabs[Math.max(0, activeIndex)].id;
+  layoutMode =
+    viewKind === "editor" && tabs.length > 1 && workspaceSession?.layoutMode === "panes"
+      ? "panes"
+      : "tabs";
   syncDirectoryWatchers();
   for (const tab of tabs) {
     loadDirectory(tab, false);
@@ -946,6 +953,9 @@ function closeTab(tabId: string): void {
   if (activeTabId === tabId) {
     activeTabId = tabs[Math.max(0, index - 1)].id;
   }
+  if (tabs.length < 2 && layoutMode === "panes") {
+    layoutMode = "tabs";
+  }
   syncDirectoryWatchers();
   activateCurrentTab();
 }
@@ -961,6 +971,7 @@ function focusTab(tabId: string): ExplorerTab {
   if (activeTabId !== tabId) {
     activeTabId = tabId;
     saveState();
+    scheduleRender();
   }
   return tab;
 }
@@ -983,6 +994,7 @@ function togglePaneLayout(): void {
     endAddressEdit();
     hideContextMenu();
   }
+  saveState();
   scheduleRender();
 }
 
@@ -1237,6 +1249,8 @@ function render(): void {
   elements.tileTabs.setAttribute("aria-pressed", String(paneMode));
   elements.tileTabs.title = paneMode ? "Return to tab view" : "Tile tabs";
   elements.tileTabs.setAttribute("aria-label", paneMode ? "Return to tab view" : "Tile tabs");
+  elements.tileActivePath.textContent = paneMode ? tab.path : "";
+  elements.tileActivePath.title = paneMode ? tab.path : "";
   elements.tileListView.classList.toggle("active", paneMode && tabs.every((candidate) => candidate.viewMode === "list"));
   elements.tileGridView.classList.toggle("active", paneMode && tabs.every((candidate) => candidate.viewMode === "grid"));
   elements.tileToggleHidden.classList.toggle("active", paneMode && tabs.some((candidate) => candidate.showHidden));
@@ -1891,7 +1905,10 @@ function renderMountedPaneItems(): void {
     if (!tab) continue;
     const refs = paneRenderElements(pane);
     if (!refs) continue;
-    refs.viewport.scrollTop = tab.scrollTop;
+    if (pane.dataset.scrollInitialized !== "true") {
+      refs.viewport.scrollTop = tab.scrollTop;
+      pane.dataset.scrollInitialized = "true";
+    }
     renderVirtualItemsInto(tab, refs);
   }
 }
@@ -2057,7 +2074,9 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
 
 function updatePaneChrome(tab: ExplorerTab, pane: HTMLElement): void {
   const previousViewMode = pane.dataset.viewMode;
+  const previousPath = pane.dataset.path;
   pane.dataset.viewMode = tab.viewMode;
+  pane.dataset.path = tab.path;
   pane.classList.toggle("focused", tab.id === activeTabId);
   const title = pane.querySelector<HTMLButtonElement>("[data-role='title']");
   if (title) {
@@ -2091,6 +2110,12 @@ function updatePaneChrome(tab: ExplorerTab, pane: HTMLElement): void {
     const items = pane.querySelector<HTMLElement>(".items");
     if (items) {
       delete items.dataset.renderSignature;
+    }
+  }
+  if ((previousPath && previousPath !== tab.path) || (previousViewMode && previousViewMode !== tab.viewMode)) {
+    const viewport = pane.querySelector<HTMLElement>(".pane-viewport");
+    if (viewport) {
+      viewport.scrollTop = tab.scrollTop;
     }
   }
   const status = pane.querySelector<HTMLElement>("[data-role='status']");
@@ -2599,7 +2624,8 @@ function flushSavedSession(): void {
     session: {
       version: 1,
       tabs: tabs.map((tab) => ({ path: tab.path })),
-      activeTabIndex
+      activeTabIndex,
+      layoutMode: viewKind === "editor" && tabs.length > 1 ? layoutMode : "tabs"
     } satisfies WorkspaceSession
   });
 }
@@ -2617,7 +2643,8 @@ function isWorkspaceSession(value: unknown): value is WorkspaceSession {
         typeof tab === "object" &&
         typeof (tab as Record<string, unknown>).path === "string"
     ) &&
-    typeof session.activeTabIndex === "number"
+    typeof session.activeTabIndex === "number" &&
+    (session.layoutMode === undefined || session.layoutMode === "tabs" || session.layoutMode === "panes")
   );
 }
 

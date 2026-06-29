@@ -28,6 +28,8 @@ already open.
 
 ![Simple File Explorer usage demonstration](assets/file-explorer.gif)
 
+![Tiled tabs demonstration](assets/file-explorer-tile-tabs.gif)
+
 ## Current features
 
 - Starts at the current VS Code workspace folder.
@@ -40,6 +42,12 @@ already open.
 - In multi-root workspaces, Home returns to the root containing the current path.
 - Multiple independent file tabs.
 - Drag-and-drop tab ordering.
+- Editor-only tiled tabs mode shows all open file tabs as independent panes in
+  one editor surface.
+- Tiled tabs keep per-pane navigation, address bars, search fields, selection,
+  and file operations while sharing display controls.
+- Tiled tabs mode is restored with the workspace session when at least two tabs
+  are open.
 - Sidebar tabs automatically shrink to keep the new-tab button reachable.
 - Sidebar toolbar actions are grouped, with display controls visually separated
   from navigation and create actions.
@@ -181,6 +189,10 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 多页签、前进、后退、向上、工作区首页和手动路径输入。
 - 多根工作区中，首页按钮会返回当前路径所属的工作区根目录。
 - 支持拖动页签调整顺序。
+- editor 模式支持平铺页签视图，可将当前打开的页签同时显示为多个独立 pane。
+- 平铺视图中，每个 pane 保留独立的导航、地址栏、搜索框、选择和文件操作，
+  列表/大图标/隐藏文件等显示控制统一作用于所有 pane。
+- 当至少有两个页签时，平铺视图会随工作区会话一起恢复。
 - 会铺满 editor 或 sidebar 可用区域，不保留额外 webview 边距。
 - 侧边栏页签会自动压缩宽度，保持新建页签按钮可用。
 - 侧边栏工具栏按导航、新建和显示控制分组，列表/图标等显示选项会单独区分。

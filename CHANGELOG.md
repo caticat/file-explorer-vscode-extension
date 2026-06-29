@@ -1,5 +1,24 @@
 # Change Log
 
+## 0.2.0
+
+- Added editor-only tiled tabs mode, which shows all open internal explorer tabs
+  as independent panes in one editor surface.
+- Added per-pane navigation, address bars, search fields, context operations,
+  create-file/create-folder actions, and focused-pane tracking in tiled mode.
+- Added a compact tiled-mode toolbar with shared details/large-icon/hidden-file
+  controls and the active pane path.
+- Added automatic tiled-pane layouts for uneven tab counts, including expanded
+  leading panes when the grid is not full.
+- Restored tiled mode as part of the workspace session when the editor view has
+  at least two saved tabs.
+- Improved tiled-mode rendering so pane focus, selection, search input, list
+  scrolling, large-icon layout, and copy/paste refreshes stay stable.
+- Hid tiled-mode controls from the sidebar view and kept toolbar grouping
+  consistent across editor, sidebar, and tiled modes.
+- Added `assets/file-explorer-tile-tabs.gif` and documented tiled tabs in the
+  README.
+
 ## 0.1.5
 
 - Improved editor folder-tree synchronization so navigating in the main file

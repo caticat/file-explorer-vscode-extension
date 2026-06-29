@@ -91,12 +91,28 @@ button {
 }
 
 .shell.pane-mode {
-  grid-template-rows: 34px minmax(0, 1fr) 24px;
+  grid-template-rows: 28px minmax(0, 1fr);
 }
 
 .shell.pane-mode .tabs-bar {
   grid-row: 1;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 1px 8px;
+  background: var(--vscode-editor-background);
+}
+
+.tile-active-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 14px;
+  overflow: hidden;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  line-height: 24px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tabs-bar-separator {
@@ -120,9 +136,13 @@ button {
   display: inline-grid;
 }
 
+.shell.pane-mode .tile-active-path {
+  display: block;
+}
+
 .shell.pane-mode .tabs-bar .icon-button {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
 }
 
 .shell.pane-mode #tile-tabs.active,
@@ -926,6 +946,10 @@ body.sidebar-mode .tabs-bar {
 
 body.sidebar-mode .tabs {
   overflow: hidden;
+}
+
+body.sidebar-mode #tile-tabs {
+  display: none;
 }
 
 body.sidebar-mode .tab {

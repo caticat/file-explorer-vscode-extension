@@ -31,6 +31,7 @@ interface WorkspaceSession {
   version: 1;
   tabs: Array<{ path: string }>;
   activeTabIndex: number;
+  layoutMode?: "tabs" | "panes";
 }
 
 interface ListColumnPreferences {
@@ -780,7 +781,8 @@ async function readWorkspaceSession(
   return {
     version: 1,
     tabs: validTabs,
-    activeTabIndex: Math.min(activeTabIndex, validTabs.length - 1)
+    activeTabIndex: Math.min(activeTabIndex, validTabs.length - 1),
+    layoutMode: saved.layoutMode === "panes" ? "panes" : "tabs"
   };
 }
 
@@ -807,7 +809,8 @@ async function saveWorkspaceSession(
   const saved: WorkspaceSession = {
     version: 1,
     tabs,
-    activeTabIndex: Math.max(0, Math.min(requestedIndex, tabs.length - 1))
+    activeTabIndex: Math.max(0, Math.min(requestedIndex, tabs.length - 1)),
+    layoutMode: session.layoutMode === "panes" && tabs.length > 1 ? "panes" : "tabs"
   };
   await context.workspaceState.update(WORKSPACE_SESSION_KEY, saved);
 }
