@@ -2,6 +2,7 @@ import "./webview.css";
 import { formatSize } from "./webviewFormat";
 import { createNameMatcher } from "./webviewMatcher";
 import { filterItems, nextSortState, sortItemsInPlace } from "./webviewItems";
+import { paneGridLayout, paneRowSpan } from "./webviewPane";
 import {
   basenameForPlatform,
   dirnameForPlatform,
@@ -1824,8 +1825,7 @@ function setMenuCheckbox(buttonElement: HTMLButtonElement, checked: boolean, lab
 }
 
 function renderPaneGrid(): void {
-  const columns = paneColumnCount(tabs.length);
-  const rows = Math.max(1, Math.ceil(tabs.length / columns));
+  const { columns, rows } = paneGridLayout(tabs.length, window.innerWidth, window.innerHeight);
   elements.paneGrid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
   elements.paneGrid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
   const existing = new Map(
@@ -1847,9 +1847,8 @@ function renderPaneGrid(): void {
 }
 
 function applyPaneSpans(panes: HTMLElement[], columns: number, rows: number): void {
-  const extraCells = Math.max(0, columns * rows - panes.length);
   panes.forEach((pane, index) => {
-    pane.style.gridRow = extraCells > 0 && index < extraCells ? "span 2" : "";
+    pane.style.gridRow = paneRowSpan(index, panes.length, columns, rows);
   });
 }
 
@@ -1860,14 +1859,6 @@ function syncPaneGridChildren(panes: HTMLElement[]): void {
     panes.every((pane, index) => current[index] === pane);
   if (unchanged) return;
   elements.paneGrid.replaceChildren(...panes);
-}
-
-function paneColumnCount(count: number): number {
-  if (count <= 1) return 1;
-  if (count <= 4) return 2;
-  if (count <= 6) return 3;
-  const ratio = Math.max(0.75, Math.min(2, window.innerWidth / Math.max(1, window.innerHeight)));
-  return Math.max(3, Math.min(4, Math.ceil(Math.sqrt(count * ratio))));
 }
 
 function renderMountedPaneItems(): void {

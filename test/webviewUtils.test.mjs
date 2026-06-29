@@ -25,6 +25,11 @@ import {
   splitPathForPlatform
 } from "../src/webviewPath.ts";
 import {
+  paneColumnCount,
+  paneGridLayout,
+  paneRowSpan
+} from "../src/webviewPane.ts";
+import {
   initialActiveTabIndex,
   initialTabPaths,
   isWorkspaceSession,
@@ -340,4 +345,21 @@ test("cleanSelectionState removes deleted selected paths and repairs anchors", (
       selectionAnchorPath: "C:\\Work\\A.txt"
     }
   );
+});
+
+test("paneColumnCount uses compact fixed columns for small pane counts", () => {
+  assert.equal(paneColumnCount(1, 1200, 800), 1);
+  assert.equal(paneColumnCount(4, 1200, 800), 2);
+  assert.equal(paneColumnCount(6, 1200, 800), 3);
+});
+
+test("paneGridLayout clamps larger pane grids by viewport ratio", () => {
+  assert.deepEqual(paneGridLayout(7, 1200, 800), { columns: 4, rows: 2 });
+  assert.deepEqual(paneGridLayout(12, 600, 1200), { columns: 3, rows: 4 });
+});
+
+test("paneRowSpan assigns extra grid cells to leading panes", () => {
+  assert.equal(paneRowSpan(0, 3, 2, 2), "span 2");
+  assert.equal(paneRowSpan(1, 3, 2, 2), "");
+  assert.equal(paneRowSpan(0, 4, 2, 2), "");
 });
