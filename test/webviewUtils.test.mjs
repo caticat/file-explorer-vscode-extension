@@ -11,6 +11,11 @@ import {
   validateFileName
 } from "../src/fileOperations.ts";
 import { formatSize } from "../src/webviewFormat.ts";
+import {
+  filterItems,
+  nextSortState,
+  sortItemsInPlace
+} from "../src/webviewItems.ts";
 import { createNameMatcher } from "../src/webviewMatcher.ts";
 import {
   basenameForPlatform,
@@ -239,4 +244,60 @@ test("canToggleTreeNodeState follows loaded children and unloaded hints", () => 
   assert.equal(canToggleTreeNodeState({ loaded: true, children: [] }), false);
   assert.equal(canToggleTreeNodeState({ loaded: false, children: [], hasChildren: false }), false);
   assert.equal(canToggleTreeNodeState({ loaded: false, children: [] }), true);
+});
+
+test("filterItems applies hidden-file and search filters", () => {
+  const items = [
+    { name: "README.md" },
+    { name: ".env" },
+    { name: "package.json" }
+  ];
+
+  assert.deepEqual(
+    filterItems(items, { showHidden: false, searchQuery: "" }).map((item) => item.name),
+    ["README.md", "package.json"]
+  );
+  assert.deepEqual(
+    filterItems(items, { showHidden: true, searchQuery: "*.md" }).map((item) => item.name),
+    ["README.md"]
+  );
+});
+
+test("sortItemsInPlace keeps directories first and sorts names numerically", () => {
+  const items = [
+    { name: "file10.txt", isDirectory: false },
+    { name: "src", isDirectory: true },
+    { name: "file2.txt", isDirectory: false }
+  ];
+
+  sortItemsInPlace(items, { sortKey: "name", sortDirection: "asc" }, "win32");
+
+  assert.deepEqual(items.map((item) => item.name), ["src", "file2.txt", "file10.txt"]);
+});
+
+test("sortItemsInPlace sorts metadata descending and falls back to name", () => {
+  const items = [
+    { name: "b.txt", isDirectory: false, modified: 5 },
+    { name: "a.txt", isDirectory: false, modified: 5 },
+    { name: "c.txt", isDirectory: false, modified: 8 }
+  ];
+
+  sortItemsInPlace(items, { sortKey: "modified", sortDirection: "desc" }, "linux");
+
+  assert.deepEqual(items.map((item) => item.name), ["c.txt", "b.txt", "a.txt"]);
+});
+
+test("nextSortState toggles existing key and defaults new keys", () => {
+  assert.deepEqual(
+    nextSortState({ sortKey: "name", sortDirection: "asc" }, "name"),
+    { sortKey: "name", sortDirection: "desc" }
+  );
+  assert.deepEqual(
+    nextSortState({ sortKey: "name", sortDirection: "asc" }, "modified"),
+    { sortKey: "modified", sortDirection: "desc" }
+  );
+  assert.deepEqual(
+    nextSortState({ sortKey: "modified", sortDirection: "desc" }, "name"),
+    { sortKey: "name", sortDirection: "asc" }
+  );
 });

@@ -1,6 +1,7 @@
 import "./webview.css";
 import { formatSize } from "./webviewFormat";
 import { createNameMatcher } from "./webviewMatcher";
+import { filterItems, nextSortState, sortItemsInPlace } from "./webviewItems";
 import {
   basenameForPlatform,
   dirnameForPlatform,
@@ -1105,12 +1106,10 @@ function runSearchForTab(tab: ExplorerTab, query: string): void {
 }
 
 function applyLocalFilter(tab: ExplorerTab, sort = true): void {
-  const matchesQuery = createNameMatcher(tab.searchQuery);
-  tab.filteredItems = tab.items.filter(
-    (item) =>
-      (tab.showHidden || !item.name.startsWith(".")) &&
-      (!tab.searchQuery || matchesQuery(item.name))
-  );
+  tab.filteredItems = filterItems(tab.items, {
+    showHidden: tab.showHidden,
+    searchQuery: tab.searchQuery
+  });
   if (sort) {
     sortItems(tab.filteredItems, tab);
   }
@@ -2359,36 +2358,14 @@ function splitPath(value: string): Array<{ label: string; path: string }> {
 }
 
 function sortItems(items: DirectoryItem[], tab: ExplorerTab): void {
-  items.sort((left, right) => {
-    if (left.isDirectory !== right.isDirectory) {
-      return left.isDirectory ? -1 : 1;
-    }
-    let result = 0;
-    if (tab.sortKey === "modified") {
-      result = (left.modified ?? 0) - (right.modified ?? 0);
-    } else if (tab.sortKey === "size") {
-      result = (left.size ?? 0) - (right.size ?? 0);
-    } else {
-      result = left.name.localeCompare(right.name, undefined, {
-        numeric: true,
-        sensitivity: platform === "win32" ? "base" : "variant"
-      });
-    }
-    if (result === 0 && tab.sortKey !== "name") {
-      result = left.name.localeCompare(right.name, undefined, { numeric: true });
-    }
-    return tab.sortDirection === "asc" ? result : -result;
-  });
+  sortItemsInPlace(items, tab, platform);
 }
 
 function changeSort(sortKey: ExplorerTab["sortKey"]): void {
   const tab = activeTab();
-  if (tab.sortKey === sortKey) {
-    tab.sortDirection = tab.sortDirection === "asc" ? "desc" : "asc";
-  } else {
-    tab.sortKey = sortKey;
-    tab.sortDirection = sortKey === "name" ? "asc" : "desc";
-  }
+  const next = nextSortState(tab, sortKey);
+  tab.sortKey = next.sortKey;
+  tab.sortDirection = next.sortDirection;
 
   if (sortKey !== "name") {
     requestMetadata(tab.items);
