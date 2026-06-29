@@ -4,6 +4,17 @@ import { createNameMatcher } from "./webviewMatcher";
 import { filterItems, nextSortState, sortItemsInPlace } from "./webviewItems";
 import { paneGridLayout, paneRowSpan } from "./webviewPane";
 import {
+  type SelectionState as PureSelectionState,
+  dragSelectionState,
+  emptySelectionState,
+  normalizedRect,
+  rectsIntersect,
+  selectAllSelectionState,
+  selectionBoxLayout,
+  shouldSuppressDragClickState,
+  updateSelectionState
+} from "./webviewSelection";
+import {
   basenameForPlatform,
   dirnameForPlatform,
   isPathInsideOrEqualForPlatform,
@@ -2634,41 +2645,22 @@ function updateSelection(
   toggle: boolean,
   range: boolean
 ): void {
-  const normalized = normalizeForComparison(itemPath);
-  if (range && tab.selectionAnchorPath) {
-    const start = tab.filteredItems.findIndex(
-      (item) => normalizeForComparison(item.path) === normalizeForComparison(tab.selectionAnchorPath!)
-    );
-    const end = tab.filteredItems.findIndex(
-      (item) => normalizeForComparison(item.path) === normalized
-    );
-    if (start >= 0 && end >= 0) {
-      const [from, to] = start < end ? [start, end] : [end, start];
-      tab.selectedPaths = tab.filteredItems.slice(from, to + 1).map((item) => item.path);
-    }
-  } else if (toggle) {
-    const existing = tab.selectedPaths.findIndex(
-      (selectedPath) => normalizeForComparison(selectedPath) === normalized
-    );
-    if (existing >= 0) {
-      tab.selectedPaths.splice(existing, 1);
-    } else {
-      tab.selectedPaths.push(itemPath);
-    }
-    tab.selectionAnchorPath = itemPath;
-  } else {
-    tab.selectedPaths = [itemPath];
-    tab.selectionAnchorPath = itemPath;
-  }
-  tab.selectedPath = itemPath;
+  applySelectionState(
+    tab,
+    updateSelectionState({
+      state: tab,
+      itemPath,
+      visibleItems: tab.filteredItems,
+      toggle,
+      range,
+      platform
+    })
+  );
 }
 
 function selectAllItems(): void {
   const tab = activeTab();
-  const paths = tab.filteredItems.map((item) => item.path);
-  tab.selectedPaths = paths;
-  tab.selectedPath = paths[paths.length - 1];
-  tab.selectionAnchorPath = paths[0];
+  applySelectionState(tab, selectAllSelectionState(tab.filteredItems.map((item) => item.path)));
   clearNativeTextSelection();
   scheduleRender();
 }
@@ -2681,9 +2673,7 @@ function clearNativeTextSelection(): void {
 function clearSelection(): void {
   const tab = activeTab();
   if (!tab.selectedPaths.length) return;
-  tab.selectedPaths = [];
-  tab.selectedPath = undefined;
-  tab.selectionAnchorPath = undefined;
+  applySelectionState(tab, emptySelectionState());
   scheduleRender();
 }
 
@@ -2752,24 +2742,24 @@ function shouldSuppressDragClick(event: MouseEvent): boolean {
 
   const pending = suppressedDragClick;
   suppressedDragClick = undefined;
-  if (performance.now() > pending.expiresAt) return false;
-
-  const distanceX = Math.abs(event.clientX - pending.clientX);
-  const distanceY = Math.abs(event.clientY - pending.clientY);
-  return distanceX <= 8 && distanceY <= 8;
+  return shouldSuppressDragClickState(pending, event, performance.now());
 }
 
 function renderSelectionBox(state: SelectionDragState): void {
   const viewportRect = elements.viewport.getBoundingClientRect();
-  const left = Math.max(0, Math.min(state.startX, state.currentX) - viewportRect.left);
-  const top = Math.max(0, Math.min(state.startY, state.currentY) - viewportRect.top);
-  const right = Math.min(viewportRect.width, Math.max(state.startX, state.currentX) - viewportRect.left);
-  const bottom = Math.min(viewportRect.height, Math.max(state.startY, state.currentY) - viewportRect.top);
+  const box = selectionBoxLayout({
+    startX: state.startX,
+    startY: state.startY,
+    currentX: state.currentX,
+    currentY: state.currentY,
+    viewport: viewportRect,
+    scrollTop: elements.viewport.scrollTop
+  });
 
-  elements.selectionBox.style.left = `${left}px`;
-  elements.selectionBox.style.top = `${top + elements.viewport.scrollTop}px`;
-  elements.selectionBox.style.width = `${Math.max(0, right - left)}px`;
-  elements.selectionBox.style.height = `${Math.max(0, bottom - top)}px`;
+  elements.selectionBox.style.left = `${box.left}px`;
+  elements.selectionBox.style.top = `${box.top}px`;
+  elements.selectionBox.style.width = `${box.width}px`;
+  elements.selectionBox.style.height = `${box.height}px`;
 }
 
 function applySelectionDrag(state: SelectionDragState): void {
@@ -2785,44 +2775,21 @@ function applySelectionDrag(state: SelectionDragState): void {
   }
 
   const tab = activeTab();
-  if (!state.additive && hitPaths.length === 0) {
-    return;
-  }
-  const selected = state.additive ? uniquePaths([...state.baseSelection, ...hitPaths]) : hitPaths;
-  tab.selectedPaths = selected;
-  tab.selectedPath = selected[selected.length - 1];
-  tab.selectionAnchorPath = selected[0];
+  const selection = dragSelectionState({
+    hitPaths,
+    additive: state.additive,
+    baseSelection: state.baseSelection,
+    platform
+  });
+  if (!selection) return;
+  applySelectionState(tab, selection);
   render();
 }
 
-function normalizedRect(left: number, top: number, right: number, bottom: number): DOMRect {
-  return new DOMRect(
-    Math.min(left, right),
-    Math.min(top, bottom),
-    Math.abs(right - left),
-    Math.abs(bottom - top)
-  );
-}
-
-function rectsIntersect(left: DOMRect, right: DOMRect): boolean {
-  return (
-    left.left <= right.right &&
-    left.right >= right.left &&
-    left.top <= right.bottom &&
-    left.bottom >= right.top
-  );
-}
-
-function uniquePaths(paths: string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const itemPath of paths) {
-    const normalized = normalizeForComparison(itemPath);
-    if (seen.has(normalized)) continue;
-    seen.add(normalized);
-    result.push(itemPath);
-  }
-  return result;
+function applySelectionState(tab: ExplorerTab, selection: PureSelectionState): void {
+  tab.selectedPath = selection.selectedPath;
+  tab.selectedPaths = selection.selectedPaths;
+  tab.selectionAnchorPath = selection.selectionAnchorPath;
 }
 
 function selectedPaths(): string[] {

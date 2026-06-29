@@ -30,6 +30,17 @@ import {
   paneRowSpan
 } from "../src/webviewPane.ts";
 import {
+  dragSelectionState,
+  emptySelectionState,
+  normalizedRect,
+  rectsIntersect,
+  selectAllSelectionState,
+  selectionBoxLayout,
+  shouldSuppressDragClickState,
+  uniquePathsForPlatform,
+  updateSelectionState
+} from "../src/webviewSelection.ts";
+import {
   initialActiveTabIndex,
   initialTabPaths,
   isWorkspaceSession,
@@ -445,4 +456,148 @@ test("metadataPathsToRequest returns only visible paths not already requested", 
     ),
     ["/repo/b.txt"]
   );
+});
+
+test("updateSelectionState selects, toggles, and range-selects visible items", () => {
+  const visibleItems = [{ path: "/repo/a" }, { path: "/repo/b" }, { path: "/repo/c" }];
+
+  assert.deepEqual(
+    updateSelectionState({
+      state: { selectedPaths: [] },
+      itemPath: "/repo/b",
+      visibleItems,
+      toggle: false,
+      range: false,
+      platform: "linux"
+    }),
+    {
+      selectedPath: "/repo/b",
+      selectedPaths: ["/repo/b"],
+      selectionAnchorPath: "/repo/b"
+    }
+  );
+
+  assert.deepEqual(
+    updateSelectionState({
+      state: { selectedPath: "/repo/b", selectedPaths: ["/repo/b"], selectionAnchorPath: "/repo/b" },
+      itemPath: "/repo/c",
+      visibleItems,
+      toggle: true,
+      range: false,
+      platform: "linux"
+    }),
+    {
+      selectedPath: "/repo/c",
+      selectedPaths: ["/repo/b", "/repo/c"],
+      selectionAnchorPath: "/repo/c"
+    }
+  );
+
+  assert.deepEqual(
+    updateSelectionState({
+      state: { selectedPath: "/repo/b", selectedPaths: ["/repo/b"], selectionAnchorPath: "/repo/b" },
+      itemPath: "/repo/a",
+      visibleItems,
+      toggle: false,
+      range: true,
+      platform: "linux"
+    }),
+    {
+      selectedPath: "/repo/a",
+      selectedPaths: ["/repo/a", "/repo/b"],
+      selectionAnchorPath: "/repo/b"
+    }
+  );
+});
+
+test("selection helpers build all, empty, and drag states", () => {
+  assert.deepEqual(selectAllSelectionState(["/a", "/b"]), {
+    selectedPath: "/b",
+    selectedPaths: ["/a", "/b"],
+    selectionAnchorPath: "/a"
+  });
+  assert.deepEqual(emptySelectionState(), {
+    selectedPath: undefined,
+    selectedPaths: [],
+    selectionAnchorPath: undefined
+  });
+  assert.deepEqual(
+    dragSelectionState({
+      hitPaths: ["/b", "/c"],
+      additive: true,
+      baseSelection: ["/a", "/b"],
+      platform: "linux"
+    }),
+    {
+      selectedPath: "/c",
+      selectedPaths: ["/a", "/b", "/c"],
+      selectionAnchorPath: "/a"
+    }
+  );
+  assert.equal(
+    dragSelectionState({ hitPaths: [], additive: false, baseSelection: ["/a"], platform: "linux" }),
+    undefined
+  );
+});
+
+test("uniquePathsForPlatform deduplicates case-insensitively on Windows", () => {
+  assert.deepEqual(
+    uniquePathsForPlatform(["C:\\Repo\\A.txt", "c:\\repo\\a.txt", "C:\\Repo\\B.txt"], "win32"),
+    ["C:\\Repo\\A.txt", "C:\\Repo\\B.txt"]
+  );
+  assert.deepEqual(
+    uniquePathsForPlatform(["/Repo/A.txt", "/repo/a.txt"], "linux"),
+    ["/Repo/A.txt", "/repo/a.txt"]
+  );
+});
+
+test("selection geometry normalizes rectangles and detects intersections", () => {
+  assert.deepEqual(normalizedRect(20, 30, 5, 10), {
+    left: 5,
+    top: 10,
+    right: 20,
+    bottom: 30
+  });
+  assert.equal(
+    rectsIntersect(
+      { left: 0, top: 0, right: 10, bottom: 10 },
+      { left: 10, top: 10, right: 20, bottom: 20 }
+    ),
+    true
+  );
+  assert.equal(
+    rectsIntersect(
+      { left: 0, top: 0, right: 9, bottom: 9 },
+      { left: 10, top: 10, right: 20, bottom: 20 }
+    ),
+    false
+  );
+});
+
+test("selectionBoxLayout clamps drag box to viewport and includes scroll offset", () => {
+  assert.deepEqual(
+    selectionBoxLayout({
+      startX: 80,
+      startY: 90,
+      currentX: 10,
+      currentY: 20,
+      viewport: { left: 20, top: 30, width: 100, height: 80 },
+      scrollTop: 40
+    }),
+    {
+      left: 0,
+      top: 40,
+      width: 60,
+      height: 60
+    }
+  );
+});
+
+test("shouldSuppressDragClickState respects expiry and pointer tolerance", () => {
+  const pending = { clientX: 100, clientY: 100, expiresAt: 200 };
+
+  assert.equal(shouldSuppressDragClickState(pending, { clientX: 106, clientY: 108 }, 150), true);
+  assert.equal(shouldSuppressDragClickState(pending, { clientX: 109, clientY: 100 }, 150), false);
+  assert.equal(shouldSuppressDragClickState(pending, { clientX: 100, clientY: 100 }, 250), false);
+  assert.equal(shouldSuppressDragClickState(undefined, { clientX: 100, clientY: 100 }, 150), false);
 });
