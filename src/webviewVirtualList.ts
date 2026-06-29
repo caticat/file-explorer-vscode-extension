@@ -7,6 +7,12 @@ export interface VirtualListLayout {
   rowHeight: number;
 }
 
+export interface VirtualRenderItem {
+  path: string;
+  size?: number;
+  modified?: number;
+}
+
 export function virtualListLayout(options: {
   itemCount: number;
   viewMode: "list" | "grid";
@@ -56,4 +62,44 @@ export function virtualListLayout(options: {
     columns,
     rowHeight
   };
+}
+
+export function virtualRenderSignature(options: {
+  tabId: string;
+  viewMode: "list" | "grid";
+  selectedPaths: string[];
+  visibleItems: VirtualRenderItem[];
+  startIndex: number;
+  endIndex: number;
+  top: number;
+  totalHeight: number;
+  columns: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  normalizePath: (path: string) => string;
+}): string {
+  return [
+    options.tabId,
+    options.viewMode,
+    options.selectedPaths.map(options.normalizePath).join("|"),
+    options.startIndex,
+    options.endIndex,
+    options.top,
+    options.totalHeight,
+    options.columns,
+    options.viewportWidth,
+    options.viewportHeight,
+    options.visibleItems
+      .map((item) => `${item.path}:${item.modified ?? ""}:${item.size ?? ""}`)
+      .join("|")
+  ].join(";");
+}
+
+export function metadataPathsToRequest(
+  visibleItems: VirtualRenderItem[],
+  requestedPaths: Set<string>
+): string[] {
+  return visibleItems
+    .filter((item) => !requestedPaths.has(item.path))
+    .map((item) => item.path);
 }

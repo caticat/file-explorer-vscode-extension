@@ -30,7 +30,11 @@ import {
   cleanSelectionState,
   workspacePathForCurrentPath
 } from "./webviewWorkspace";
-import { virtualListLayout } from "./webviewVirtualList";
+import {
+  metadataPathsToRequest,
+  virtualListLayout,
+  virtualRenderSignature
+} from "./webviewVirtualList";
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void;
@@ -2220,29 +2224,26 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
   }
 
   const visible = data.slice(layout.startIndex, layout.endIndex);
-  const renderSignature = [
-    tab.id,
-    tab.viewMode,
-    tab.selectedPaths.map((selectedPath) => normalizeForComparison(selectedPath)).join("|"),
-    layout.startIndex,
-    layout.endIndex,
-    layout.top,
-    layout.totalHeight,
-    layout.columns,
-    target.viewport.clientWidth,
-    target.viewport.clientHeight,
-    visible
-      .map((item) => `${item.path}:${item.modified ?? ""}:${item.size ?? ""}`)
-      .join("|")
-  ].join(";");
+  const renderSignature = virtualRenderSignature({
+    tabId: tab.id,
+    viewMode: tab.viewMode,
+    selectedPaths: tab.selectedPaths,
+    visibleItems: visible,
+    startIndex: layout.startIndex,
+    endIndex: layout.endIndex,
+    top: layout.top,
+    totalHeight: layout.totalHeight,
+    columns: layout.columns,
+    viewportWidth: target.viewport.clientWidth,
+    viewportHeight: target.viewport.clientHeight,
+    normalizePath: normalizeForComparison
+  });
   if (target.items.dataset.renderSignature !== renderSignature) {
     target.items.dataset.renderSignature = renderSignature;
     target.items.replaceChildren(...visible.map((item) => createItemElement(item, tab)));
   }
 
-  const needsMetadata = visible
-    .filter((item) => !metadataRequested.has(item.path))
-    .map((item) => item.path);
+  const needsMetadata = metadataPathsToRequest(visible, metadataRequested);
   if (needsMetadata.length > 0) {
     needsMetadata.forEach((itemPath) => metadataRequested.add(itemPath));
     vscode.postMessage({ command: "loadMetadata", paths: needsMetadata });

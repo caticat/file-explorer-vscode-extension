@@ -46,7 +46,11 @@ import {
   cleanSelectionState,
   workspacePathForCurrentPath
 } from "../src/webviewWorkspace.ts";
-import { virtualListLayout } from "../src/webviewVirtualList.ts";
+import {
+  metadataPathsToRequest,
+  virtualListLayout,
+  virtualRenderSignature
+} from "../src/webviewVirtualList.ts";
 
 test("createNameMatcher matches plain text case-insensitively", () => {
   const matcher = createNameMatcher("read");
@@ -410,5 +414,35 @@ test("virtualListLayout computes grid ranges and columns", () => {
       columns: 2,
       rowHeight: 80
     }
+  );
+});
+
+test("virtualRenderSignature includes selection, viewport, and visible metadata", () => {
+  assert.equal(
+    virtualRenderSignature({
+      tabId: "tab-1",
+      viewMode: "list",
+      selectedPaths: ["C:\\Work\\A.txt"],
+      visibleItems: [{ path: "C:\\Work\\A.txt", modified: 10, size: 20 }],
+      startIndex: 1,
+      endIndex: 2,
+      top: 30,
+      totalHeight: 300,
+      columns: 1,
+      viewportWidth: 500,
+      viewportHeight: 200,
+      normalizePath: (value) => value.toLocaleLowerCase()
+    }),
+    "tab-1;list;c:\\work\\a.txt;1;2;30;300;1;500;200;C:\\Work\\A.txt:10:20"
+  );
+});
+
+test("metadataPathsToRequest returns only visible paths not already requested", () => {
+  assert.deepEqual(
+    metadataPathsToRequest(
+      [{ path: "/repo/a.txt" }, { path: "/repo/b.txt" }],
+      new Set(["/repo/a.txt"])
+    ),
+    ["/repo/b.txt"]
   );
 });
