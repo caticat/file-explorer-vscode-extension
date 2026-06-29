@@ -112,6 +112,7 @@ let activeTabId = "";
 let renderScheduled = false;
 let sessionSaveTimer = 0;
 let suppressSessionSave = false;
+let layoutMode: "tabs" | "panes" = "tabs";
 let draggingTabId: string | undefined;
 let contextMenuItem: DirectoryItem | undefined;
 let typeAheadBuffer = "";
@@ -148,12 +149,32 @@ interface SuppressedDragClick {
   expiresAt: number;
 }
 
+interface PaneRenderElements {
+  viewport: HTMLElement;
+  spacer: HTMLElement;
+  items: HTMLElement;
+  empty: HTMLElement;
+}
+
 app.innerHTML = `
   <div class="shell">
     <div class="tabs-bar">
       <div id="tabs" class="tabs"></div>
       <button id="new-tab" class="icon-button" title="New tab" aria-label="New tab">${toolbarIcon(
         "M8 1.5V14.5M1.5 8H14.5"
+      )}</button>
+      <button id="tile-tabs" class="icon-button" title="Tile tabs" aria-label="Tile tabs" aria-pressed="false">${toolbarIcon(
+        "M2.5 2.5h5v11h-5v-11ZM9.5 2.5h4v4.5h-4V2.5ZM9.5 9h4v4.5h-4V9Z"
+      )}</button>
+      <span class="tabs-bar-separator pane-mode-control" aria-hidden="true"></span>
+      <button id="tile-list-view" class="icon-button pane-mode-control" title="Details view" aria-label="Details view">${toolbarIcon(
+        "M2 3.5h2v2H2v-2ZM6 4.5h8M2 7h2v2H2V7ZM6 8h8M2 10.5h2v2H2v-2ZM6 11.5h8"
+      )}</button>
+      <button id="tile-grid-view" class="icon-button pane-mode-control" title="Large icons" aria-label="Large icons">${toolbarIcon(
+        "M2 2.5h5v5H2v-5ZM9 2.5h5v5H9v-5ZM2 9h5v5H2V9ZM9 9h5v5H9V9Z"
+      )}</button>
+      <button id="tile-toggle-hidden" class="icon-button pane-mode-control" title="Show hidden files" aria-label="Show hidden files">${toolbarIcon(
+        "M1.5 8s2.5-4 6.5-4 6.5 4 6.5 4-2.5 4-6.5 4S1.5 8 1.5 8ZM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"
       )}</button>
     </div>
     <div class="toolbar">
@@ -277,6 +298,7 @@ app.innerHTML = `
           <div id="selection-box" class="selection-box hidden"></div>
         </div>
       </main>
+      <div id="pane-grid" class="pane-grid hidden"></div>
     </div>
     <div class="footer-bar">
       <span id="status" class="status"></span>
@@ -301,6 +323,10 @@ app.innerHTML = `
 const elements = {
   tabs: byId("tabs"),
   newTab: button("new-tab"),
+  tileTabs: button("tile-tabs"),
+  tileListView: button("tile-list-view"),
+  tileGridView: button("tile-grid-view"),
+  tileToggleHidden: button("tile-toggle-hidden"),
   back: button("back"),
   forward: button("forward"),
   up: button("up"),
@@ -337,6 +363,7 @@ const elements = {
   items: byId("items"),
   empty: byId("empty"),
   selectionBox: byId("selection-box"),
+  paneGrid: byId("pane-grid"),
   contextMenu: byId("context-menu"),
   revealSystem: button("reveal-system"),
   showInExplorer: button("show-in-explorer"),
@@ -351,7 +378,14 @@ const elements = {
   toggleSizeColumnMenu: button("toggle-size-column-menu")
 };
 
-elements.newTab.addEventListener("click", () => createTab(getWorkspacePath()));
+elements.newTab.addEventListener("click", () => {
+  if (layoutMode === "panes") return;
+  createTab(getWorkspacePath());
+});
+elements.tileTabs.addEventListener("click", togglePaneLayout);
+elements.tileListView.addEventListener("click", () => setAllTabsViewMode("list"));
+elements.tileGridView.addEventListener("click", () => setAllTabsViewMode("grid"));
+elements.tileToggleHidden.addEventListener("click", toggleAllHiddenFiles);
 elements.back.addEventListener("click", () => moveHistory(-1));
 elements.forward.addEventListener("click", () => moveHistory(1));
 elements.up.addEventListener("click", navigateUp);
@@ -921,6 +955,16 @@ function activateTab(tabId: string): void {
   activateCurrentTab();
 }
 
+function focusTab(tabId: string): ExplorerTab {
+  const tab = tabs.find((candidate) => candidate.id === tabId);
+  if (!tab) throw new Error("No tab to focus.");
+  if (activeTabId !== tabId) {
+    activeTabId = tabId;
+    saveState();
+  }
+  return tab;
+}
+
 function activateCurrentTab(): void {
   const tab = activeTab();
   elements.searchInput.value = tab.searchQuery;
@@ -932,8 +976,22 @@ function activateCurrentTab(): void {
   saveState();
 }
 
+function togglePaneLayout(): void {
+  if (viewKind !== "editor") return;
+  layoutMode = layoutMode === "panes" ? "tabs" : "panes";
+  if (layoutMode === "panes") {
+    endAddressEdit();
+    hideContextMenu();
+  }
+  scheduleRender();
+}
+
 function navigate(targetPath: string, pushHistory = true, revealPath?: string): void {
   const tab = activeTab();
+  navigateTab(tab, targetPath, pushHistory, revealPath);
+}
+
+function navigateTab(tab: ExplorerTab, targetPath: string, pushHistory = true, revealPath?: string): void {
   if (normalizeForComparison(targetPath) === normalizeForComparison(tab.path)) {
     tab.selectedPath = revealPath;
     tab.selectedPaths = revealPath ? [revealPath] : [];
@@ -966,6 +1024,10 @@ function navigate(targetPath: string, pushHistory = true, revealPath?: string): 
 
 function moveHistory(offset: number): void {
   const tab = activeTab();
+  moveTabHistory(tab, offset);
+}
+
+function moveTabHistory(tab: ExplorerTab, offset: number): void {
   const targetIndex = tab.historyIndex + offset;
   if (targetIndex < 0 || targetIndex >= tab.history.length) {
     return;
@@ -979,9 +1041,13 @@ function moveHistory(offset: number): void {
 
 function navigateUp(): void {
   const tab = activeTab();
+  navigateTabUp(tab);
+}
+
+function navigateTabUp(tab: ExplorerTab): void {
   const parent = dirname(tab.path);
   if (parent !== tab.path) {
-    navigate(parent);
+    navigateTab(tab, parent);
   }
 }
 
@@ -1005,7 +1071,11 @@ function loadDirectory(tab: ExplorerTab, preserveItems: boolean, preserveFocus =
 
 function runSearch(): void {
   const tab = activeTab();
-  tab.searchQuery = elements.searchInput.value.trim();
+  runSearchForTab(tab, elements.searchInput.value.trim());
+}
+
+function runSearchForTab(tab: ExplorerTab, query: string): void {
+  tab.searchQuery = query;
   cancelSearch(tab);
 
   if (!tab.searchQuery) {
@@ -1097,6 +1167,30 @@ function setViewMode(viewMode: ExplorerTab["viewMode"]): void {
   scheduleRender();
 }
 
+function setAllTabsViewMode(viewMode: ExplorerTab["viewMode"]): void {
+  if (tabs.every((tab) => tab.viewMode === viewMode)) return;
+  preferredViewMode = viewMode;
+  for (const tab of tabs) {
+    tab.viewMode = viewMode;
+    tab.scrollTop = 0;
+  }
+  elements.viewport.scrollTop = 0;
+  vscode.postMessage({ command: "savePreferences", viewMode });
+  scheduleRender();
+}
+
+function toggleAllHiddenFiles(): void {
+  const showHidden = !activeTab().showHidden;
+  for (const tab of tabs) {
+    tab.showHidden = showHidden;
+    applyLocalFilter(tab);
+    if (tab.recursiveSearch && tab.searchQuery) {
+      runSearchForTab(tab, tab.searchQuery);
+    }
+  }
+  scheduleRender();
+}
+
 function toggleListColumn(column: keyof ListColumnPreferences): void {
   listColumns = {
     ...listColumns,
@@ -1127,15 +1221,32 @@ function render(): void {
   if (!tabs.length) return;
   const tab = activeTab();
   const shell = document.querySelector(".shell");
-  shell?.classList.toggle("grid-mode", tab.viewMode === "grid");
-  shell?.classList.toggle("tree-visible", viewKind === "editor" && treeVisible);
+  const paneMode = layoutMode === "panes" && viewKind === "editor";
+  shell?.classList.toggle("grid-mode", !paneMode && tab.viewMode === "grid");
+  shell?.classList.toggle("tree-visible", !paneMode && viewKind === "editor" && treeVisible);
+  shell?.classList.toggle("pane-mode", paneMode);
   document.body.classList.toggle("hide-modified-column", !listColumns.modified);
   document.body.classList.toggle("hide-size-column", !listColumns.size);
   renderTabs();
   renderAddress(tab);
   renderToolbar(tab);
   renderTree(tab);
-  renderVirtualItems(tab);
+  elements.paneGrid.classList.toggle("hidden", !paneMode);
+  elements.newTab.disabled = paneMode;
+  elements.tileTabs.classList.toggle("active", paneMode);
+  elements.tileTabs.setAttribute("aria-pressed", String(paneMode));
+  elements.tileTabs.title = paneMode ? "Return to tab view" : "Tile tabs";
+  elements.tileTabs.setAttribute("aria-label", paneMode ? "Return to tab view" : "Tile tabs");
+  elements.tileListView.classList.toggle("active", paneMode && tabs.every((candidate) => candidate.viewMode === "list"));
+  elements.tileGridView.classList.toggle("active", paneMode && tabs.every((candidate) => candidate.viewMode === "grid"));
+  elements.tileToggleHidden.classList.toggle("active", paneMode && tabs.some((candidate) => candidate.showHidden));
+  elements.tileToggleHidden.title = activeTab().showHidden ? "Hide hidden files" : "Show hidden files";
+  if (paneMode) {
+    renderPaneGrid();
+  } else {
+    elements.paneGrid.replaceChildren();
+    renderVirtualItems(tab);
+  }
   elements.status.textContent = tab.status;
   elements.selectionStatus.textContent =
     tab.selectedPaths.length > 1 ? `${tab.selectedPaths.length.toLocaleString()} selected` : "";
@@ -1726,10 +1837,381 @@ function setMenuCheckbox(buttonElement: HTMLButtonElement, checked: boolean, lab
   buttonElement.setAttribute("aria-checked", String(checked));
 }
 
+function renderPaneGrid(): void {
+  const columns = paneColumnCount(tabs.length);
+  const rows = Math.max(1, Math.ceil(tabs.length / columns));
+  elements.paneGrid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+  elements.paneGrid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+  const existing = new Map(
+    Array.from(elements.paneGrid.querySelectorAll<HTMLElement>(".explorer-pane")).map((pane) => [
+      pane.dataset.tabId,
+      pane
+    ])
+  );
+  const panes = tabs.map((tab) => existing.get(tab.id) ?? createPaneElement(tab));
+  syncPaneGridChildren(panes);
+  applyPaneSpans(panes, columns, rows);
+  for (const tab of tabs) {
+    const pane = existing.get(tab.id) ?? panes.find((candidate) => candidate.dataset.tabId === tab.id);
+    if (pane) {
+      updatePaneChrome(tab, pane);
+    }
+  }
+  requestAnimationFrame(renderMountedPaneItems);
+}
+
+function applyPaneSpans(panes: HTMLElement[], columns: number, rows: number): void {
+  const extraCells = Math.max(0, columns * rows - panes.length);
+  panes.forEach((pane, index) => {
+    pane.style.gridRow = extraCells > 0 && index < extraCells ? "span 2" : "";
+  });
+}
+
+function syncPaneGridChildren(panes: HTMLElement[]): void {
+  const current = Array.from(elements.paneGrid.children);
+  const unchanged =
+    current.length === panes.length &&
+    panes.every((pane, index) => current[index] === pane);
+  if (unchanged) return;
+  elements.paneGrid.replaceChildren(...panes);
+}
+
+function paneColumnCount(count: number): number {
+  if (count <= 1) return 1;
+  if (count <= 4) return 2;
+  if (count <= 6) return 3;
+  const ratio = Math.max(0.75, Math.min(2, window.innerWidth / Math.max(1, window.innerHeight)));
+  return Math.max(3, Math.min(4, Math.ceil(Math.sqrt(count * ratio))));
+}
+
+function renderMountedPaneItems(): void {
+  for (const pane of Array.from(elements.paneGrid.querySelectorAll<HTMLElement>(".explorer-pane"))) {
+    const tabId = pane.dataset.tabId;
+    const tab = tabs.find((candidate) => candidate.id === tabId);
+    if (!tab) continue;
+    const refs = paneRenderElements(pane);
+    if (!refs) continue;
+    refs.viewport.scrollTop = tab.scrollTop;
+    renderVirtualItemsInto(tab, refs);
+  }
+}
+
+function createPaneElement(tab: ExplorerTab): HTMLElement {
+  const pane = document.createElement("section");
+  pane.className = "explorer-pane";
+  pane.dataset.tabId = tab.id;
+  pane.addEventListener("pointerdown", () => focusTab(tab.id));
+
+  const header = document.createElement("div");
+  header.className = "pane-header";
+
+  const title = document.createElement("button");
+  title.className = "pane-title";
+  title.dataset.role = "title";
+  title.addEventListener("click", () => {
+    activateTab(tab.id);
+  });
+
+  const actions = document.createElement("div");
+  actions.className = "pane-actions";
+  actions.append(
+    paneIconButton("Back", "M10.5 3.5L6 8l4.5 4.5M6.5 8H14", () => {
+      focusTab(tab.id);
+      moveTabHistory(tab, -1);
+    }, false, false, "back"),
+    paneIconButton("Forward", "M5.5 3.5L10 8l-4.5 4.5M9.5 8H2", () => {
+      focusTab(tab.id);
+      moveTabHistory(tab, 1);
+    }, false, false, "forward"),
+    paneIconButton("Up", "M8 13V3M4 7l4-4 4 4", () => {
+      focusTab(tab.id);
+      navigateTabUp(tab);
+    }, false, false, "up"),
+    paneIconButton("Back to workspace", "M2 7.5L8 2l6 5.5V14H9.5v-4h-3v4H2V7.5Z", () => {
+      focusTab(tab.id);
+      navigateTab(tab, getWorkspacePath(tab.path));
+    }, false, false, "home"),
+    paneIconButton("Refresh", "M13 5V2.5M13 2.5h-2.5M13 2.5A6 6 0 1 0 14 9", () => {
+      focusTab(tab.id);
+      loadDirectory(tab, false);
+    }, false, false, "refresh"),
+    paneActionSeparator(),
+    paneIconButton("New file", "M4 1.5h5l3 3V14H4V1.5ZM9 1.5v3h3M8 7v4M6 9h4", () => {
+      focusTab(tab.id);
+      vscode.postMessage({ command: "createFile", path: tab.path });
+    }, false, false, "newFile"),
+    paneIconButton("New folder", "M1.5 4h5l1.5 2H14v7H1.5V4ZM8 8v3M6.5 9.5h3", () => {
+      focusTab(tab.id);
+      vscode.postMessage({ command: "createFolder", path: tab.path });
+    }, false, false, "newFolder")
+  );
+
+  header.append(title, actions);
+
+  const pathRow = document.createElement("div");
+  pathRow.className = "pane-path-row";
+  const address = document.createElement("div");
+  address.className = "address pane-address";
+  address.dataset.role = "address";
+  const addressInput = document.createElement("input");
+  addressInput.className = "address-input pane-address-input hidden";
+  addressInput.dataset.role = "addressInput";
+  addressInput.spellcheck = false;
+  address.addEventListener("click", (event) => {
+    focusTab(tab.id);
+    if (event.target === address) {
+      beginPaneAddressEdit(tab, address, addressInput);
+    }
+  });
+  address.addEventListener("dblclick", () => {
+    focusTab(tab.id);
+    beginPaneAddressEdit(tab, address, addressInput);
+  });
+  addressInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      focusTab(tab.id);
+      endPaneAddressEdit(address, addressInput);
+      navigateTab(tab, addressInput.value);
+    } else if (event.key === "Escape") {
+      endPaneAddressEdit(address, addressInput);
+    }
+  });
+  addressInput.addEventListener("blur", () => {
+    endPaneAddressEdit(address, addressInput);
+  });
+  pathRow.append(address, addressInput);
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "pane-toolbar";
+  const searchBox = document.createElement("div");
+  searchBox.className = "search-box pane-search-box";
+  searchBox.innerHTML = toolbarIcon("M6.5 2.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9.5 9.5 14 14", "search-icon");
+  const searchInput = document.createElement("input");
+  searchInput.dataset.role = "search";
+  searchInput.type = "search";
+  searchInput.placeholder = "Search";
+  searchInput.title = "Search by name. Supports * and ? wildcards.";
+  searchInput.addEventListener("input", debounce(() => {
+    focusTab(tab.id);
+    runSearchForTab(tab, searchInput.value.trim());
+  }, 180));
+  const recursive = document.createElement("button");
+  recursive.className = "search-option";
+  recursive.dataset.role = "recursiveSearch";
+  recursive.type = "button";
+  recursive.setAttribute("aria-label", "Search subfolders");
+  recursive.innerHTML = toolbarIcon("M2 3.5h5l1.5 2H14v7H2v-9ZM6 8h5M9 6l2 2-2 2");
+  recursive.addEventListener("click", () => {
+    focusTab(tab.id);
+    tab.recursiveSearch = !tab.recursiveSearch;
+    if (tab.searchQuery) {
+      runSearchForTab(tab, tab.searchQuery);
+    } else {
+      scheduleRender();
+    }
+  });
+  searchBox.append(searchInput, recursive);
+
+  toolbar.append(searchBox);
+
+  const mainPane = document.createElement("main");
+  mainPane.className = `main-pane pane-main ${tab.viewMode === "grid" ? "pane-grid-mode" : ""}`;
+  const listHeader = createPaneListHeader(tab);
+  const viewport = document.createElement("div");
+  viewport.className = "viewport pane-viewport";
+  viewport.tabIndex = 0;
+  const spacer = document.createElement("div");
+  spacer.className = "spacer";
+  const items = document.createElement("div");
+  items.className = "items";
+  const empty = document.createElement("div");
+  empty.className = "empty hidden";
+  viewport.append(spacer, items, empty);
+  const refs = { viewport, spacer, items, empty };
+  viewport.scrollTop = tab.scrollTop;
+  viewport.addEventListener("scroll", () => {
+    tab.scrollTop = viewport.scrollTop;
+    renderVirtualItemsInto(tab, refs);
+  });
+  viewport.addEventListener("pointerdown", () => {
+    focusTab(tab.id);
+    keyboardTarget = "items";
+  });
+  viewport.addEventListener("click", clearSelectionFromEmptyClick);
+  viewport.addEventListener("contextmenu", showViewportContextMenu);
+  mainPane.append(listHeader, viewport);
+
+  const footer = document.createElement("div");
+  footer.className = "footer-bar pane-footer";
+  const status = document.createElement("span");
+  status.className = "status";
+  status.dataset.role = "status";
+  const selectionStatus = document.createElement("span");
+  selectionStatus.className = "selection-status";
+  selectionStatus.dataset.role = "selectionStatus";
+  footer.append(status, selectionStatus);
+
+  pane.append(header, pathRow, toolbar, mainPane, footer);
+  return pane;
+}
+
+function updatePaneChrome(tab: ExplorerTab, pane: HTMLElement): void {
+  const previousViewMode = pane.dataset.viewMode;
+  pane.dataset.viewMode = tab.viewMode;
+  pane.classList.toggle("focused", tab.id === activeTabId);
+  const title = pane.querySelector<HTMLButtonElement>("[data-role='title']");
+  if (title) {
+    title.textContent = tab.title;
+    title.title = tab.path;
+  }
+  const address = pane.querySelector<HTMLElement>("[data-role='address']");
+  const addressInput = pane.querySelector<HTMLInputElement>("[data-role='addressInput']");
+  if (address && addressInput && addressInput.classList.contains("hidden")) {
+    address.replaceChildren(...createAddressNodes(tab));
+  }
+  const searchInput = pane.querySelector<HTMLInputElement>("[data-role='search']");
+  if (searchInput && document.activeElement !== searchInput && searchInput.value !== tab.searchQuery) {
+    searchInput.value = tab.searchQuery;
+  }
+  const recursive = pane.querySelector<HTMLButtonElement>("[data-role='recursiveSearch']");
+  if (recursive) {
+    recursive.classList.toggle("active", tab.recursiveSearch);
+    recursive.title = tab.recursiveSearch ? "Search subfolders: on" : "Search subfolders: off";
+    recursive.setAttribute("aria-pressed", String(tab.recursiveSearch));
+  }
+  setPaneButtonDisabled(pane, "back", tab.historyIndex <= 0);
+  setPaneButtonDisabled(pane, "forward", tab.historyIndex >= tab.history.length - 1);
+  setPaneButtonDisabled(pane, "up", dirname(tab.path) === tab.path);
+  setPaneButtonDisabled(pane, "home", !workspaceRoots.length);
+  const mainPane = pane.querySelector<HTMLElement>(".pane-main");
+  mainPane?.classList.toggle("pane-grid-mode", tab.viewMode === "grid");
+  const listHeader = pane.querySelector<HTMLElement>(".pane-list-header");
+  listHeader?.classList.toggle("hidden", tab.viewMode !== "list");
+  if (previousViewMode && previousViewMode !== tab.viewMode) {
+    const items = pane.querySelector<HTMLElement>(".items");
+    if (items) {
+      delete items.dataset.renderSignature;
+    }
+  }
+  const status = pane.querySelector<HTMLElement>("[data-role='status']");
+  if (status) status.textContent = tab.status;
+  const selectionStatus = pane.querySelector<HTMLElement>("[data-role='selectionStatus']");
+  if (selectionStatus) {
+    selectionStatus.textContent =
+      tab.selectedPaths.length > 1 ? `${tab.selectedPaths.length.toLocaleString()} selected` : "";
+  }
+}
+
+function setPaneButtonDisabled(pane: HTMLElement, role: string, disabled: boolean): void {
+  const buttonElement = pane.querySelector<HTMLButtonElement>(`[data-role='${role}']`);
+  if (buttonElement) buttonElement.disabled = disabled;
+}
+
+function beginPaneAddressEdit(
+  tab: ExplorerTab,
+  address: HTMLElement,
+  addressInput: HTMLInputElement
+): void {
+  address.classList.add("hidden");
+  addressInput.classList.remove("hidden");
+  addressInput.value = tab.path;
+  addressInput.focus();
+  addressInput.select();
+}
+
+function endPaneAddressEdit(address: HTMLElement, addressInput: HTMLInputElement): void {
+  addressInput.classList.add("hidden");
+  address.classList.remove("hidden");
+}
+
+function paneRenderElements(pane: HTMLElement): PaneRenderElements | undefined {
+  const viewport = pane.querySelector<HTMLElement>(".pane-viewport");
+  const spacer = pane.querySelector<HTMLElement>(".spacer");
+  const items = pane.querySelector<HTMLElement>(".items");
+  const empty = pane.querySelector<HTMLElement>(".empty");
+  if (!viewport || !spacer || !items || !empty) return undefined;
+  return { viewport, spacer, items, empty };
+}
+
+function createAddressNodes(tab: ExplorerTab): Node[] {
+  const parts = splitPath(tab.path);
+  const nodes: Node[] = [];
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index];
+    if (index > 0) {
+      const separator = document.createElement("span");
+      separator.className = "breadcrumb-separator";
+      separator.textContent = "›";
+      nodes.push(separator);
+    }
+    const buttonElement = document.createElement("button");
+    buttonElement.className = "breadcrumb";
+    buttonElement.textContent = part.label;
+    buttonElement.title = part.path;
+    buttonElement.addEventListener("click", () => {
+      focusTab(tab.id);
+      navigate(part.path);
+    });
+    nodes.push(buttonElement);
+  }
+  return nodes;
+}
+
+function paneIconButton(
+  label: string,
+  pathData: string,
+  onClick: () => void,
+  disabled = false,
+  active = false,
+  role?: string
+): HTMLButtonElement {
+  const buttonElement = document.createElement("button");
+  buttonElement.className = `icon-button ${active ? "active" : ""}`;
+  buttonElement.title = label;
+  buttonElement.setAttribute("aria-label", label);
+  if (role) buttonElement.dataset.role = role;
+  buttonElement.disabled = disabled;
+  buttonElement.innerHTML = toolbarIcon(pathData);
+  buttonElement.addEventListener("click", onClick);
+  return buttonElement;
+}
+
+function paneActionSeparator(): HTMLElement {
+  const separator = document.createElement("span");
+  separator.className = "pane-action-separator";
+  separator.setAttribute("aria-hidden", "true");
+  return separator;
+}
+
+function createPaneListHeader(tab: ExplorerTab): HTMLElement {
+  const header = document.createElement("div");
+  header.className = `list-header pane-list-header ${tab.viewMode === "list" ? "" : "hidden"}`;
+  for (const [key, label] of [
+    ["name", "Name"],
+    ["modified", "Modified"],
+    ["size", "Size"]
+  ] as Array<[ExplorerTab["sortKey"], string]>) {
+    const buttonElement = document.createElement("button");
+    buttonElement.dataset.sort = key;
+    buttonElement.classList.toggle("active", key === tab.sortKey);
+    buttonElement.textContent = `${label}${key === tab.sortKey ? (tab.sortDirection === "asc" ? " ↑" : " ↓") : ""}`;
+    buttonElement.addEventListener("click", () => {
+      focusTab(tab.id);
+      changeSort(key);
+    });
+    header.append(buttonElement);
+  }
+  return header;
+}
+
 function renderVirtualItems(tab: ExplorerTab): void {
+  renderVirtualItemsInto(tab, elements);
+}
+
+function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): void {
   const data = tab.filteredItems;
-  const viewportHeight = elements.viewport.clientHeight;
-  const scrollTop = elements.viewport.scrollTop;
+  const viewportHeight = target.viewport.clientHeight;
+  const scrollTop = target.viewport.scrollTop;
   const overscan = 4;
   let startIndex = 0;
   let endIndex = 0;
@@ -1747,7 +2229,7 @@ function renderVirtualItems(tab: ExplorerTab): void {
   } else {
     const itemWidth = gridItemWidth();
     rowHeight = gridRowHeight();
-    columns = Math.max(1, Math.floor(elements.viewport.clientWidth / itemWidth));
+    columns = Math.max(1, Math.floor(target.viewport.clientWidth / itemWidth));
     const rowCount = Math.ceil(data.length / columns);
     totalHeight = rowCount * rowHeight;
     const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
@@ -1757,17 +2239,35 @@ function renderVirtualItems(tab: ExplorerTab): void {
     top = startRow * rowHeight;
   }
 
-  elements.spacer.style.height = `${totalHeight}px`;
-  elements.items.style.transform = `translateY(${top}px)`;
-  elements.items.className = `items ${tab.viewMode}`;
+  target.spacer.style.height = `${totalHeight}px`;
+  target.items.style.transform = `translateY(${top}px)`;
+  target.items.className = `items ${tab.viewMode}`;
   if (tab.viewMode === "grid") {
-    elements.items.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+    target.items.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
   } else {
-    elements.items.style.removeProperty("grid-template-columns");
+    target.items.style.removeProperty("grid-template-columns");
   }
 
   const visible = data.slice(startIndex, endIndex);
-  elements.items.replaceChildren(...visible.map((item) => createItemElement(item, tab)));
+  const renderSignature = [
+    tab.id,
+    tab.viewMode,
+    tab.selectedPaths.map((selectedPath) => normalizeForComparison(selectedPath)).join("|"),
+    startIndex,
+    endIndex,
+    top,
+    totalHeight,
+    columns,
+    target.viewport.clientWidth,
+    target.viewport.clientHeight,
+    visible
+      .map((item) => `${item.path}:${item.modified ?? ""}:${item.size ?? ""}`)
+      .join("|")
+  ].join(";");
+  if (target.items.dataset.renderSignature !== renderSignature) {
+    target.items.dataset.renderSignature = renderSignature;
+    target.items.replaceChildren(...visible.map((item) => createItemElement(item, tab)));
+  }
 
   const needsMetadata = visible
     .filter((item) => !metadataRequested.has(item.path))
@@ -1778,8 +2278,8 @@ function renderVirtualItems(tab: ExplorerTab): void {
   }
 
   const showEmpty = !tab.loading && data.length === 0;
-  elements.empty.classList.toggle("hidden", !showEmpty);
-  elements.empty.textContent = tab.searchQuery ? "No matching files." : "This folder is empty.";
+  target.empty.classList.toggle("hidden", !showEmpty);
+  target.empty.textContent = tab.searchQuery ? "No matching files." : "This folder is empty.";
 }
 
 function listRowHeight(): number {
@@ -1787,10 +2287,12 @@ function listRowHeight(): number {
 }
 
 function gridItemWidth(): number {
+  if (layoutMode === "panes" && viewKind === "editor") return 96;
   return viewKind === "sidebar" ? 68 : 128;
 }
 
 function gridRowHeight(): number {
+  if (layoutMode === "panes" && viewKind === "editor") return 92;
   return viewKind === "sidebar" ? 100 : 128;
 }
 
@@ -1830,10 +2332,12 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
       event.preventDefault();
       return;
     }
+    focusTab(tab.id);
     updateSelection(tab, item.path, event.ctrlKey || event.metaKey, event.shiftKey);
     scheduleRender();
   });
   element.addEventListener("dblclick", () => {
+    focusTab(tab.id);
     if (item.isDirectory) {
       navigate(item.path);
     } else {
@@ -1842,6 +2346,7 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
   });
   element.addEventListener("contextmenu", (event) => {
     event.preventDefault();
+    focusTab(tab.id);
     if (
       !tab.selectedPaths.some(
         (selectedPath) => normalizeForComparison(selectedPath) === normalizeForComparison(item.path)
