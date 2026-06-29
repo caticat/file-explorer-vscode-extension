@@ -30,6 +30,7 @@ import {
   cleanSelectionState,
   workspacePathForCurrentPath
 } from "./webviewWorkspace";
+import { virtualListLayout } from "./webviewVirtualList";
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void;
@@ -2198,54 +2199,36 @@ function renderVirtualItems(tab: ExplorerTab): void {
 
 function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): void {
   const data = tab.filteredItems;
-  const viewportHeight = target.viewport.clientHeight;
-  const scrollTop = target.viewport.scrollTop;
-  const overscan = 4;
-  let startIndex = 0;
-  let endIndex = 0;
-  let totalHeight = 0;
-  let top = 0;
-  let columns = 1;
-  let rowHeight = 34;
+  const layout = virtualListLayout({
+    itemCount: data.length,
+    viewMode: tab.viewMode,
+    viewportHeight: target.viewport.clientHeight,
+    viewportWidth: target.viewport.clientWidth,
+    scrollTop: target.viewport.scrollTop,
+    listRowHeight: listRowHeight(),
+    gridItemWidth: gridItemWidth(),
+    gridRowHeight: gridRowHeight()
+  });
 
-  if (tab.viewMode === "list") {
-    rowHeight = listRowHeight();
-    totalHeight = data.length * rowHeight;
-    startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
-    endIndex = Math.min(data.length, Math.ceil((scrollTop + viewportHeight) / rowHeight) + overscan);
-    top = startIndex * rowHeight;
-  } else {
-    const itemWidth = gridItemWidth();
-    rowHeight = gridRowHeight();
-    columns = Math.max(1, Math.floor(target.viewport.clientWidth / itemWidth));
-    const rowCount = Math.ceil(data.length / columns);
-    totalHeight = rowCount * rowHeight;
-    const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
-    const endRow = Math.min(rowCount, Math.ceil((scrollTop + viewportHeight) / rowHeight) + overscan);
-    startIndex = startRow * columns;
-    endIndex = Math.min(data.length, endRow * columns);
-    top = startRow * rowHeight;
-  }
-
-  target.spacer.style.height = `${totalHeight}px`;
-  target.items.style.transform = `translateY(${top}px)`;
+  target.spacer.style.height = `${layout.totalHeight}px`;
+  target.items.style.transform = `translateY(${layout.top}px)`;
   target.items.className = `items ${tab.viewMode}`;
   if (tab.viewMode === "grid") {
-    target.items.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+    target.items.style.gridTemplateColumns = `repeat(${layout.columns}, minmax(0, 1fr))`;
   } else {
     target.items.style.removeProperty("grid-template-columns");
   }
 
-  const visible = data.slice(startIndex, endIndex);
+  const visible = data.slice(layout.startIndex, layout.endIndex);
   const renderSignature = [
     tab.id,
     tab.viewMode,
     tab.selectedPaths.map((selectedPath) => normalizeForComparison(selectedPath)).join("|"),
-    startIndex,
-    endIndex,
-    top,
-    totalHeight,
-    columns,
+    layout.startIndex,
+    layout.endIndex,
+    layout.top,
+    layout.totalHeight,
+    layout.columns,
     target.viewport.clientWidth,
     target.viewport.clientHeight,
     visible

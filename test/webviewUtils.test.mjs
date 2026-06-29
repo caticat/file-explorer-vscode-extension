@@ -46,6 +46,7 @@ import {
   cleanSelectionState,
   workspacePathForCurrentPath
 } from "../src/webviewWorkspace.ts";
+import { virtualListLayout } from "../src/webviewVirtualList.ts";
 
 test("createNameMatcher matches plain text case-insensitively", () => {
   const matcher = createNameMatcher("read");
@@ -362,4 +363,52 @@ test("paneRowSpan assigns extra grid cells to leading panes", () => {
   assert.equal(paneRowSpan(0, 3, 2, 2), "span 2");
   assert.equal(paneRowSpan(1, 3, 2, 2), "");
   assert.equal(paneRowSpan(0, 4, 2, 2), "");
+});
+
+test("virtualListLayout computes list ranges with overscan", () => {
+  assert.deepEqual(
+    virtualListLayout({
+      itemCount: 100,
+      viewMode: "list",
+      viewportHeight: 90,
+      viewportWidth: 500,
+      scrollTop: 60,
+      listRowHeight: 30,
+      gridItemWidth: 100,
+      gridRowHeight: 100,
+      overscan: 1
+    }),
+    {
+      startIndex: 1,
+      endIndex: 6,
+      totalHeight: 3000,
+      top: 30,
+      columns: 1,
+      rowHeight: 30
+    }
+  );
+});
+
+test("virtualListLayout computes grid ranges and columns", () => {
+  assert.deepEqual(
+    virtualListLayout({
+      itemCount: 20,
+      viewMode: "grid",
+      viewportHeight: 200,
+      viewportWidth: 250,
+      scrollTop: 100,
+      listRowHeight: 30,
+      gridItemWidth: 100,
+      gridRowHeight: 80,
+      overscan: 1
+    }),
+    {
+      startIndex: 0,
+      endIndex: 10,
+      totalHeight: 800,
+      top: 0,
+      columns: 2,
+      rowHeight: 80
+    }
+  );
 });
