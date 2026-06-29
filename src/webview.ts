@@ -8,6 +8,17 @@ import {
   normalizeForComparisonForPlatform,
   splitPathForPlatform
 } from "./webviewPath";
+import {
+  type IconThemePayload,
+  type ListColumnPreferences,
+  type WorkspaceSession,
+  initialActiveTabIndex,
+  initialTabPaths,
+  isWorkspaceSession,
+  normalizeIconTheme,
+  normalizeListColumns,
+  restoredLayoutMode
+} from "./webviewState";
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void;
@@ -60,18 +71,6 @@ interface ExplorerTab {
   externalNavigationId?: string;
 }
 
-interface WorkspaceSession {
-  version: 1;
-  tabs: Array<{ path: string }>;
-  activeTabIndex: number;
-  layoutMode?: "tabs" | "panes";
-}
-
-interface ListColumnPreferences {
-  modified: boolean;
-  size: boolean;
-}
-
 interface TreeNodeState {
   path: string;
   name: string;
@@ -84,14 +83,6 @@ interface TreeNodeState {
   error?: string;
   requestId?: string;
   children: DirectoryItem[];
-}
-
-interface IconThemePayload {
-  file?: string;
-  folder?: string;
-  fileExtensions: Record<string, string>;
-  fileNames: Record<string, string>;
-  folderNames: Record<string, string>;
 }
 
 const vscode = acquireVsCodeApi();
@@ -882,21 +873,9 @@ function handleHostMessage(message: Record<string, unknown>): void {
 }
 
 function restoreOrCreateInitialTab(workspaceSession?: WorkspaceSession): void {
-  const initialPaths = workspaceSession?.tabs.length
-    ? workspaceSession.tabs.map((tab) => tab.path)
-    : workspaceRoots.length > 1
-      ? workspaceRoots.map((root) => root.path)
-      : [initialPath];
-
-  tabs = initialPaths.map(createTabModel);
-  const activeIndex = workspaceSession
-    ? Math.min(workspaceSession.activeTabIndex, tabs.length - 1)
-    : 0;
-  activeTabId = tabs[Math.max(0, activeIndex)].id;
-  layoutMode =
-    viewKind === "editor" && tabs.length > 1 && workspaceSession?.layoutMode === "panes"
-      ? "panes"
-      : "tabs";
+  tabs = initialTabPaths(workspaceSession, workspaceRoots, initialPath).map(createTabModel);
+  activeTabId = tabs[initialActiveTabIndex(workspaceSession, tabs.length)].id;
+  layoutMode = restoredLayoutMode(viewKind, tabs.length, workspaceSession);
   syncDirectoryWatchers();
   for (const tab of tabs) {
     loadDirectory(tab, false);
@@ -948,6 +927,7 @@ function closeTab(tabId: string): void {
     return;
   }
   const index = tabs.findIndex((tab) => tab.id === tabId);
+  if (index < 0) return;
   const [removed] = tabs.splice(index, 1);
   cancelTabRequests(removed);
   if (activeTabId === tabId) {
@@ -2630,55 +2610,6 @@ function flushSavedSession(): void {
   });
 }
 
-function isWorkspaceSession(value: unknown): value is WorkspaceSession {
-  if (!value || typeof value !== "object") return false;
-  const session = value as Record<string, unknown>;
-  return (
-    session.version === 1 &&
-    Array.isArray(session.tabs) &&
-    session.tabs.length > 0 &&
-    session.tabs.every(
-      (tab) =>
-        tab !== null &&
-        typeof tab === "object" &&
-        typeof (tab as Record<string, unknown>).path === "string"
-    ) &&
-    typeof session.activeTabIndex === "number" &&
-    (session.layoutMode === undefined || session.layoutMode === "tabs" || session.layoutMode === "panes")
-  );
-}
-
-function normalizeListColumns(value: unknown): ListColumnPreferences {
-  const columns = value && typeof value === "object" ? (value as Partial<ListColumnPreferences>) : {};
-  return {
-    modified: columns.modified !== false,
-    size: columns.size !== false
-  };
-}
-
-function normalizeIconTheme(value: unknown): IconThemePayload | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const source = value as Partial<IconThemePayload>;
-  return {
-    file: typeof source.file === "string" ? source.file : undefined,
-    folder: typeof source.folder === "string" ? source.folder : undefined,
-    fileExtensions: normalizeStringMap(source.fileExtensions),
-    fileNames: normalizeStringMap(source.fileNames),
-    folderNames: normalizeStringMap(source.folderNames)
-  };
-}
-
-function normalizeStringMap(value: unknown): Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const result: Record<string, string> = {};
-  for (const [key, mapValue] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof mapValue === "string") {
-      result[key.toLocaleLowerCase()] = mapValue;
-    }
-  }
-  return result;
-}
-
 function showTemporaryStatus(message: string): void {
   const tab = activeTab();
   const previous = tab.status;
@@ -3078,17 +3009,8 @@ function revealSelectedItem(tab: ExplorerTab, focusSelected = true): void {
 function completeExternalNavigation(tab: ExplorerTab): void {
   if (!tab.externalNavigationId) return;
   const requestId = tab.externalNavigationId;
-  const targetFound =
-    !tab.pendingRevealPath ||
-    tab.items.some(
-      (item) =>
-        normalizeForComparison(item.path) === normalizeForComparison(tab.pendingRevealPath!)
-    );
-
-  if (targetFound) {
-    tab.externalNavigationId = undefined;
-    vscode.postMessage({ command: "navigationComplete", requestId });
-  }
+  tab.externalNavigationId = undefined;
+  vscode.postMessage({ command: "navigationComplete", requestId });
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

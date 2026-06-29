@@ -3,6 +3,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
+import {
+  copyItem,
+  isPathInsideOrEqualPath,
+  nextCopyName,
+  validateFileName
+} from "./fileOperations";
 
 interface DirectoryItem {
   name: string;
@@ -1435,13 +1441,8 @@ async function pasteItems(
           progress.report({ increment });
           continue;
         }
-        const relativeDestination = path.relative(path.resolve(source), path.resolve(destination));
-        if (
-          relativeDestination &&
-          !relativeDestination.startsWith("..") &&
-          !path.isAbsolute(relativeDestination)
-        ) {
-          throw new Error(`Cannot copy "${path.basename(source)}" into itself.`);
+        if (cut && isPathInsideOrEqualPath(destination, source)) {
+          throw new Error(`Cannot move "${path.basename(source)}" into itself.`);
         }
         const target = await findAvailableDestination(destination, path.basename(source));
         if (cut) {
@@ -1453,7 +1454,7 @@ async function pasteItems(
             await fs.promises.rm(source, { recursive: true, force: true });
           }
         } else {
-          await fs.promises.cp(source, target, { recursive: true, errorOnExist: true });
+          await copyItem(source, target);
         }
         lastTarget = target;
         progress.report({ increment });
@@ -1472,12 +1473,10 @@ async function pasteItems(
 }
 
 async function findAvailableDestination(directoryPath: string, name: string): Promise<string> {
-  const extension = path.extname(name);
-  const stem = extension ? name.slice(0, -extension.length) : name;
   let candidate = path.join(directoryPath, name);
   let index = 1;
   while (await exists(candidate)) {
-    candidate = path.join(directoryPath, `${stem} copy${index === 1 ? "" : ` ${index}`}${extension}`);
+    candidate = path.join(directoryPath, nextCopyName(name, index));
     index += 1;
   }
   return candidate;
@@ -1490,13 +1489,6 @@ async function exists(itemPath: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function validateFileName(value: string): string | undefined {
-  if (!value.trim()) return "Name is required.";
-  if (value === "." || value === "..") return "This name is not allowed.";
-  if (value.includes("/") || value.includes("\\")) return "Name cannot contain path separators.";
-  return undefined;
 }
 
 async function validateDirectory(
