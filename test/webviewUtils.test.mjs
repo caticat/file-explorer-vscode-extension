@@ -27,6 +27,11 @@ import {
   normalizeListColumns,
   restoredLayoutMode
 } from "../src/webviewState.ts";
+import {
+  canToggleTreeNodeState,
+  treeAncestorPathsForRevealTarget,
+  treeNodeKey
+} from "../src/webviewTree.ts";
 
 test("createNameMatcher matches plain text case-insensitively", () => {
   const matcher = createNameMatcher("read");
@@ -205,4 +210,33 @@ test("restoredLayoutMode only restores panes for editor views with multiple tabs
   assert.equal(restoredLayoutMode("editor", 1, session), "tabs");
   assert.equal(restoredLayoutMode("sidebar", 2, session), "tabs");
   assert.equal(restoredLayoutMode("editor", 2, undefined), "tabs");
+});
+
+test("treeNodeKey normalizes paths using the active platform", () => {
+  assert.equal(treeNodeKey("C:\\Work\\Project\\", "win32"), "c:\\work\\project");
+  assert.equal(treeNodeKey("/Work/Project/", "linux"), "/Work/Project");
+});
+
+test("treeAncestorPathsForRevealTarget returns ancestors from the longest matching root", () => {
+  assert.deepEqual(
+    treeAncestorPathsForRevealTarget(
+      "C:\\Work\\Project\\src\\feature",
+      ["C:\\Work", "C:\\Work\\Project"],
+      "win32"
+    ),
+    ["C:\\Work\\Project", "C:\\Work\\Project\\src"]
+  );
+  assert.deepEqual(
+    treeAncestorPathsForRevealTarget("/repo/src/feature", ["/repo"], "linux"),
+    ["/repo", "/repo/src"]
+  );
+  assert.deepEqual(treeAncestorPathsForRevealTarget("/repo", ["/repo"], "linux"), []);
+  assert.deepEqual(treeAncestorPathsForRevealTarget("/other", ["/repo"], "linux"), []);
+});
+
+test("canToggleTreeNodeState follows loaded children and unloaded hints", () => {
+  assert.equal(canToggleTreeNodeState({ loaded: true, children: [{}] }), true);
+  assert.equal(canToggleTreeNodeState({ loaded: true, children: [] }), false);
+  assert.equal(canToggleTreeNodeState({ loaded: false, children: [], hasChildren: false }), false);
+  assert.equal(canToggleTreeNodeState({ loaded: false, children: [] }), true);
 });

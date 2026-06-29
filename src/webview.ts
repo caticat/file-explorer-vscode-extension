@@ -19,6 +19,11 @@ import {
   normalizeListColumns,
   restoredLayoutMode
 } from "./webviewState";
+import {
+  canToggleTreeNodeState,
+  treeAncestorPathsForRevealTarget,
+  treeNodeKey
+} from "./webviewTree";
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void;
@@ -1531,27 +1536,11 @@ function continueTreePathReveal(): void {
 }
 
 function treeAncestorPathsForReveal(targetPath: string): string[] {
-  const targetRoot = treeRootNodes()
-    .filter((root) => isPathInsideOrEqual(targetPath, root.path))
-    .sort((left, right) => right.path.length - left.path.length)[0];
-  if (!targetRoot) return [];
-
-  const rootPath = targetRoot.path;
-  if (normalizeForComparison(targetPath) === normalizeForComparison(rootPath)) {
-    return [];
-  }
-
-  const ancestors: string[] = [];
-  let current = targetPath;
-  while (normalizeForComparison(current) !== normalizeForComparison(rootPath)) {
-    const parent = dirname(current);
-    if (normalizeForComparison(parent) === normalizeForComparison(current)) {
-      return [];
-    }
-    ancestors.push(parent);
-    current = parent;
-  }
-  return ancestors.reverse();
+  return treeAncestorPathsForRevealTarget(
+    targetPath,
+    treeRootNodes().map((root) => root.path),
+    platform
+  );
 }
 
 function syncTreeHiddenMode(showHidden: boolean): void {
@@ -1711,7 +1700,7 @@ function toggleKeyboardTreeNode(): boolean {
 }
 
 function canToggleTreeNode(node: TreeNodeState): boolean {
-  return node.loaded ? node.children.length > 0 : node.hasChildren !== false;
+  return canToggleTreeNodeState(node);
 }
 
 function toggleTreeNode(node: TreeNodeState): void {
@@ -1818,7 +1807,7 @@ function treeNode(nodePath: string): TreeNodeState | undefined {
 }
 
 function treeKey(nodePath: string): string {
-  return normalizeForComparison(nodePath);
+  return treeNodeKey(nodePath, platform);
 }
 
 function updateListColumnMenu(): void {
