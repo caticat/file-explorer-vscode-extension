@@ -25,6 +25,10 @@ import {
   treeAncestorPathsForRevealTarget,
   treeNodeKey
 } from "./webviewTree";
+import {
+  cleanSelectionState,
+  workspacePathForCurrentPath
+} from "./webviewWorkspace";
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void;
@@ -2385,13 +2389,7 @@ function requestMetadata(items: DirectoryItem[]): void {
 }
 
 function getWorkspacePath(currentPath?: string): string {
-  if (currentPath) {
-    const matchingRoot = workspaceRoots
-      .filter((root) => isPathInsideOrEqual(currentPath, root.path))
-      .sort((left, right) => right.path.length - left.path.length)[0];
-    if (matchingRoot) return matchingRoot.path;
-  }
-  return workspaceRoots[0]?.path ?? initialPath;
+  return workspacePathForCurrentPath(currentPath, workspaceRoots, initialPath, platform);
 }
 
 function isPathInsideOrEqual(candidate: string, root: string): boolean {
@@ -2399,22 +2397,10 @@ function isPathInsideOrEqual(candidate: string, root: string): boolean {
 }
 
 function cleanSelection(tab: ExplorerTab): void {
-  const existingPaths = new Set(tab.items.map((item) => normalizeForComparison(item.path)));
-  tab.selectedPaths = tab.selectedPaths.filter((selectedPath) =>
-    existingPaths.has(normalizeForComparison(selectedPath))
-  );
-  if (
-    tab.selectedPath &&
-    !existingPaths.has(normalizeForComparison(tab.selectedPath))
-  ) {
-    tab.selectedPath = tab.selectedPaths[0];
-  }
-  if (
-    tab.selectionAnchorPath &&
-    !existingPaths.has(normalizeForComparison(tab.selectionAnchorPath))
-  ) {
-    tab.selectionAnchorPath = tab.selectedPaths[0];
-  }
+  const selection = cleanSelectionState(tab, tab.items.map((item) => item.path), platform);
+  tab.selectedPath = selection.selectedPath;
+  tab.selectedPaths = selection.selectedPaths;
+  tab.selectionAnchorPath = selection.selectionAnchorPath;
 }
 
 function activeTab(): ExplorerTab {

@@ -37,6 +37,10 @@ import {
   treeAncestorPathsForRevealTarget,
   treeNodeKey
 } from "../src/webviewTree.ts";
+import {
+  cleanSelectionState,
+  workspacePathForCurrentPath
+} from "../src/webviewWorkspace.ts";
 
 test("createNameMatcher matches plain text case-insensitively", () => {
   const matcher = createNameMatcher("read");
@@ -299,5 +303,41 @@ test("nextSortState toggles existing key and defaults new keys", () => {
   assert.deepEqual(
     nextSortState({ sortKey: "modified", sortDirection: "desc" }, "name"),
     { sortKey: "name", sortDirection: "asc" }
+  );
+});
+
+test("workspacePathForCurrentPath picks the longest containing root", () => {
+  const roots = [{ path: "C:\\Work" }, { path: "C:\\Work\\Project" }];
+
+  assert.equal(
+    workspacePathForCurrentPath("C:\\Work\\Project\\src", roots, "C:\\Fallback", "win32"),
+    "C:\\Work\\Project"
+  );
+  assert.equal(
+    workspacePathForCurrentPath("C:\\Other", roots, "C:\\Fallback", "win32"),
+    "C:\\Work"
+  );
+  assert.equal(
+    workspacePathForCurrentPath(undefined, [], "/home/pan", "linux"),
+    "/home/pan"
+  );
+});
+
+test("cleanSelectionState removes deleted selected paths and repairs anchors", () => {
+  assert.deepEqual(
+    cleanSelectionState(
+      {
+        selectedPath: "C:\\Work\\B.txt",
+        selectedPaths: ["C:\\Work\\A.txt", "C:\\Work\\B.txt"],
+        selectionAnchorPath: "C:\\Work\\B.txt"
+      },
+      ["C:\\Work\\A.txt"],
+      "win32"
+    ),
+    {
+      selectedPath: "C:\\Work\\A.txt",
+      selectedPaths: ["C:\\Work\\A.txt"],
+      selectionAnchorPath: "C:\\Work\\A.txt"
+    }
   );
 });
