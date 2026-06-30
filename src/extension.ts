@@ -9,6 +9,10 @@ import {
   nextCopyName,
   validateFileName
 } from "./fileOperations";
+import {
+  createNameMatcher,
+  directoryNameFromExcludePattern
+} from "./extensionSearch";
 
 interface DirectoryItem {
   name: string;
@@ -1240,32 +1244,6 @@ function searchIgnoredDirectories(): Set<string> {
     }
   }
   return names;
-}
-
-function directoryNameFromExcludePattern(pattern: string): string | undefined {
-  const normalized = pattern.replaceAll("\\", "/").replace(/\/+$/, "");
-  if (!normalized || normalized.includes("{") || normalized.includes("}")) {
-    return undefined;
-  }
-
-  const segments = normalized.split("/").filter(Boolean);
-  const last = segments[segments.length - 1];
-  if (!last || last.includes("*") || last.includes("?")) {
-    return undefined;
-  }
-  return last;
-}
-
-function createNameMatcher(query: string): (name: string) => boolean {
-  if (!query.includes("*") && !query.includes("?")) {
-    const normalized = query.toLocaleLowerCase();
-    return (name) => name.toLocaleLowerCase().includes(normalized);
-  }
-
-  const escaped = query.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  const expression = escaped.replaceAll("*", ".*").replaceAll("?", ".");
-  const regex = new RegExp(`^${expression}$`, "i");
-  return (name) => regex.test(name);
 }
 
 function updateDirectoryWatchers(panel: ExplorerWebviewHost, paths: string[]): void {

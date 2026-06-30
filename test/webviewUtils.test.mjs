@@ -10,6 +10,10 @@ import {
   nextCopyName,
   validateFileName
 } from "../src/fileOperations.ts";
+import {
+  createNameMatcher as createExtensionNameMatcher,
+  directoryNameFromExcludePattern
+} from "../src/extensionSearch.ts";
 import { formatSize } from "../src/webviewFormat.ts";
 import {
   copySelectionStatus,
@@ -80,6 +84,25 @@ test("createNameMatcher supports wildcard patterns", () => {
 
   assert.equal(matcher("webview.ts"), true);
   assert.equal(matcher("webview.tsx"), false);
+});
+
+test("extension search matcher mirrors plain and wildcard filename matching", () => {
+  const plain = createExtensionNameMatcher("read");
+  const wildcard = createExtensionNameMatcher("*.ts");
+
+  assert.equal(plain("README.md"), true);
+  assert.equal(plain("package.json"), false);
+  assert.equal(wildcard("webview.ts"), true);
+  assert.equal(wildcard("webview.tsx"), false);
+});
+
+test("directoryNameFromExcludePattern extracts safe directory names", () => {
+  assert.equal(directoryNameFromExcludePattern("node_modules"), "node_modules");
+  assert.equal(directoryNameFromExcludePattern("**/dist/"), "dist");
+  assert.equal(directoryNameFromExcludePattern("build\\cache"), "cache");
+  assert.equal(directoryNameFromExcludePattern("**/*.tmp"), undefined);
+  assert.equal(directoryNameFromExcludePattern("{dist,build}"), undefined);
+  assert.equal(directoryNameFromExcludePattern(""), undefined);
 });
 
 test("formatSize formats bytes and larger units", () => {
