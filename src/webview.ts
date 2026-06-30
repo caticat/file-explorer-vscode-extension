@@ -1,6 +1,7 @@
 import "./webview.css";
 import { formatSize } from "./webviewFormat";
 import { createNameMatcher } from "./webviewMatcher";
+import { copySelectionStatus, uniqueWatcherPaths } from "./webviewCommandState";
 import { filterItems, nextSortState, sortItemsInPlace } from "./webviewItems";
 import { paneGridLayout, paneRowSpan } from "./webviewPane";
 import {
@@ -43,6 +44,7 @@ import {
 } from "./webviewWorkspace";
 import {
   metadataPathsToRequest,
+  revealScrollTop,
   virtualListLayout,
   virtualRenderSignature
 } from "./webviewVirtualList";
@@ -160,6 +162,9 @@ interface SelectionDragState {
   additive: boolean;
   baseSelection: string[];
   active: boolean;
+  viewport: HTMLElement;
+  items: HTMLElement;
+  selectionBox: HTMLElement;
 }
 
 interface SuppressedDragClick {
@@ -704,7 +709,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
       revealSelectedItem(tab, !tab.preserveFocusAfterReveal);
       completeExternalNavigation(tab);
       if (tab.focusViewportAfterLoad && tab.id === activeTabId) {
-        requestAnimationFrame(() => elements.viewport.focus({ preventScroll: true }));
+        requestAnimationFrame(() => renderTargetsForTab(tab).viewport.focus({ preventScroll: true }));
       }
       tab.pendingRevealPath = undefined;
       tab.preserveFocusAfterReveal = false;
@@ -2033,6 +2038,7 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
     focusTab(tab.id);
     keyboardTarget = "items";
   });
+  viewport.addEventListener("pointerdown", beginSelectionDrag);
   viewport.addEventListener("click", clearSelectionFromEmptyClick);
   viewport.addEventListener("contextmenu", showViewportContextMenu);
   mainPane.append(listHeader, viewport);
@@ -2685,7 +2691,10 @@ function clearSelectionFromEmptyClick(event: MouseEvent): void {
 
 function beginSelectionDrag(event: PointerEvent): void {
   if (event.button !== 0 || isEditableTarget(event.target)) return;
-  if (!(event.target as HTMLElement).closest(".viewport")) return;
+  const viewport = (event.target as HTMLElement).closest<HTMLElement>(".viewport");
+  if (!viewport) return;
+  const items = viewport.querySelector<HTMLElement>(".items");
+  if (!items) return;
 
   selectionDrag = {
     pointerId: event.pointerId,
@@ -2695,7 +2704,10 @@ function beginSelectionDrag(event: PointerEvent): void {
     currentY: event.clientY,
     additive: event.ctrlKey || event.metaKey,
     baseSelection: [...activeTab().selectedPaths],
-    active: false
+    active: false,
+    viewport,
+    items,
+    selectionBox: ensureSelectionBox(viewport)
   };
 }
 
@@ -2710,7 +2722,7 @@ function updateSelectionDrag(event: PointerEvent): void {
     const distanceY = Math.abs(selectionDrag.currentY - selectionDrag.startY);
     if (distanceX < 5 && distanceY < 5) return;
     selectionDrag.active = true;
-    elements.selectionBox.classList.remove("hidden");
+    selectionDrag.selectionBox.classList.remove("hidden");
     document.body.classList.add("drag-selecting");
     clearNativeTextSelection();
   }
@@ -2732,8 +2744,9 @@ function endSelectionDrag(event: PointerEvent): void {
     };
   }
 
+  const selectionBox = selectionDrag.selectionBox;
   selectionDrag = undefined;
-  elements.selectionBox.classList.add("hidden");
+  selectionBox.classList.add("hidden");
   document.body.classList.remove("drag-selecting");
 }
 
@@ -2746,27 +2759,27 @@ function shouldSuppressDragClick(event: MouseEvent): boolean {
 }
 
 function renderSelectionBox(state: SelectionDragState): void {
-  const viewportRect = elements.viewport.getBoundingClientRect();
+  const viewportRect = state.viewport.getBoundingClientRect();
   const box = selectionBoxLayout({
     startX: state.startX,
     startY: state.startY,
     currentX: state.currentX,
     currentY: state.currentY,
     viewport: viewportRect,
-    scrollTop: elements.viewport.scrollTop
+    scrollTop: state.viewport.scrollTop
   });
 
-  elements.selectionBox.style.left = `${box.left}px`;
-  elements.selectionBox.style.top = `${box.top}px`;
-  elements.selectionBox.style.width = `${box.width}px`;
-  elements.selectionBox.style.height = `${box.height}px`;
+  state.selectionBox.style.left = `${box.left}px`;
+  state.selectionBox.style.top = `${box.top}px`;
+  state.selectionBox.style.width = `${box.width}px`;
+  state.selectionBox.style.height = `${box.height}px`;
 }
 
 function applySelectionDrag(state: SelectionDragState): void {
   const selectionRect = normalizedRect(state.startX, state.startY, state.currentX, state.currentY);
   const hitPaths: string[] = [];
 
-  for (const element of Array.from(elements.items.querySelectorAll<HTMLElement>(".file-item"))) {
+  for (const element of Array.from(state.items.querySelectorAll<HTMLElement>(".file-item"))) {
     const itemRect = element.getBoundingClientRect();
     if (rectsIntersect(selectionRect, itemRect)) {
       const itemPath = element.dataset.path;
@@ -2784,6 +2797,16 @@ function applySelectionDrag(state: SelectionDragState): void {
   if (!selection) return;
   applySelectionState(tab, selection);
   render();
+}
+
+function ensureSelectionBox(viewport: HTMLElement): HTMLElement {
+  const existing = viewport.querySelector<HTMLElement>(".selection-box");
+  if (existing) return existing;
+
+  const selectionBox = document.createElement("div");
+  selectionBox.className = "selection-box hidden";
+  viewport.append(selectionBox);
+  return selectionBox;
 }
 
 function applySelectionState(tab: ExplorerTab, selection: PureSelectionState): void {
@@ -2834,9 +2857,7 @@ function copySelection(cut: boolean): void {
   if (!paths.length) return;
   clipboardPaths = paths;
   clipboardCut = cut;
-  activeTab().status = `${cut ? "Cut" : "Copied"} ${paths.length.toLocaleString()} item${
-    paths.length === 1 ? "" : "s"
-  }`;
+  activeTab().status = copySelectionStatus(paths.length, cut);
   hideContextMenu();
   scheduleRender();
 }
@@ -2855,7 +2876,7 @@ function pasteClipboard(): void {
 function syncDirectoryWatchers(): void {
   vscode.postMessage({
     command: "watchDirectories",
-    paths: [...new Set(tabs.map((tab) => tab.path))]
+    paths: uniqueWatcherPaths(tabs.map((tab) => tab.path))
   });
 }
 
@@ -2871,33 +2892,42 @@ function revealSelectedItem(tab: ExplorerTab, focusSelected = true): void {
     return;
   }
 
-  let targetScrollTop: number;
-  if (tab.viewMode === "list") {
-    targetScrollTop = index * listRowHeight();
-  } else {
-    const columns = Math.max(1, Math.floor(elements.viewport.clientWidth / gridItemWidth()));
-    targetScrollTop = Math.floor(index / columns) * gridRowHeight();
-  }
-
-  const rowHeight = tab.viewMode === "list" ? listRowHeight() : gridRowHeight();
-  targetScrollTop = Math.max(
-    0,
-    targetScrollTop - Math.max(0, (elements.viewport.clientHeight - rowHeight) / 2)
-  );
+  const targets = renderTargetsForTab(tab);
+  const targetScrollTop = revealScrollTop({
+    itemIndex: index,
+    viewMode: tab.viewMode,
+    viewportWidth: targets.viewport.clientWidth,
+    viewportHeight: targets.viewport.clientHeight,
+    listRowHeight: listRowHeight(),
+    gridItemWidth: gridItemWidth(),
+    gridRowHeight: gridRowHeight()
+  });
   tab.scrollTop = targetScrollTop;
 
   // The virtual spacer and visible rows must be rendered before applying a
   // large scroll offset. Otherwise Chromium may clamp it to the old height.
   scheduleRender();
   requestAnimationFrame(() => {
-    elements.viewport.scrollTop = targetScrollTop;
+    const nextTargets = renderTargetsForTab(tab);
+    nextTargets.viewport.scrollTop = targetScrollTop;
     scheduleRender();
     requestAnimationFrame(() => {
       if (!focusSelected) return;
-      const selected = elements.items.querySelector<HTMLElement>(".file-item.selected");
+      const selected = nextTargets.items.querySelector<HTMLElement>(".file-item.selected");
       selected?.focus({ preventScroll: true });
     });
   });
+}
+
+function renderTargetsForTab(tab: ExplorerTab): PaneRenderElements {
+  if (layoutMode === "panes" && viewKind === "editor") {
+    const pane = Array.from(
+      elements.paneGrid.querySelectorAll<HTMLElement>(".explorer-pane")
+    ).find((candidate) => candidate.dataset.tabId === tab.id);
+    const refs = pane ? paneRenderElements(pane) : undefined;
+    if (refs) return refs;
+  }
+  return elements;
 }
 
 function completeExternalNavigation(tab: ExplorerTab): void {

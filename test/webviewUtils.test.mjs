@@ -12,6 +12,10 @@ import {
 } from "../src/fileOperations.ts";
 import { formatSize } from "../src/webviewFormat.ts";
 import {
+  copySelectionStatus,
+  uniqueWatcherPaths
+} from "../src/webviewCommandState.ts";
+import {
   filterItems,
   nextSortState,
   sortItemsInPlace
@@ -59,6 +63,7 @@ import {
 } from "../src/webviewWorkspace.ts";
 import {
   metadataPathsToRequest,
+  revealScrollTop,
   virtualListLayout,
   virtualRenderSignature
 } from "../src/webviewVirtualList.ts";
@@ -600,4 +605,53 @@ test("shouldSuppressDragClickState respects expiry and pointer tolerance", () =>
   assert.equal(shouldSuppressDragClickState(pending, { clientX: 109, clientY: 100 }, 150), false);
   assert.equal(shouldSuppressDragClickState(pending, { clientX: 100, clientY: 100 }, 250), false);
   assert.equal(shouldSuppressDragClickState(undefined, { clientX: 100, clientY: 100 }, 150), false);
+});
+
+test("copySelectionStatus formats copy and cut messages", () => {
+  assert.equal(copySelectionStatus(1, false), "Copied 1 item");
+  assert.equal(copySelectionStatus(2, false), "Copied 2 items");
+  assert.equal(copySelectionStatus(3, true), "Cut 3 items");
+});
+
+test("uniqueWatcherPaths preserves first occurrence order", () => {
+  assert.deepEqual(uniqueWatcherPaths(["/a", "/b", "/a", "/c"]), ["/a", "/b", "/c"]);
+});
+
+test("revealScrollTop centers list and grid items when possible", () => {
+  assert.equal(
+    revealScrollTop({
+      itemIndex: 10,
+      viewMode: "list",
+      viewportWidth: 400,
+      viewportHeight: 120,
+      listRowHeight: 30,
+      gridItemWidth: 100,
+      gridRowHeight: 80
+    }),
+    255
+  );
+  assert.equal(
+    revealScrollTop({
+      itemIndex: 7,
+      viewMode: "grid",
+      viewportWidth: 250,
+      viewportHeight: 200,
+      listRowHeight: 30,
+      gridItemWidth: 100,
+      gridRowHeight: 80
+    }),
+    180
+  );
+  assert.equal(
+    revealScrollTop({
+      itemIndex: 0,
+      viewMode: "list",
+      viewportWidth: 400,
+      viewportHeight: 120,
+      listRowHeight: 30,
+      gridItemWidth: 100,
+      gridRowHeight: 80
+    }),
+    0
+  );
 });

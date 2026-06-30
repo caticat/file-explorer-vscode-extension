@@ -103,3 +103,27 @@ export function metadataPathsToRequest(
     .filter((item) => !requestedPaths.has(item.path))
     .map((item) => item.path);
 }
+
+export function revealScrollTop(options: {
+  itemIndex: number;
+  viewMode: "list" | "grid";
+  viewportWidth: number;
+  viewportHeight: number;
+  listRowHeight: number;
+  gridItemWidth: number;
+  gridRowHeight: number;
+}): number {
+  const rowHeight = options.viewMode === "list" ? options.listRowHeight : options.gridRowHeight;
+  const itemTop =
+    options.viewMode === "list"
+      ? options.itemIndex * rowHeight
+      : Math.floor(
+          options.itemIndex /
+            Math.max(1, Math.floor(options.viewportWidth / options.gridItemWidth))
+        ) * rowHeight;
+
+  return Math.max(
+    0,
+    itemTop - Math.max(0, (options.viewportHeight - rowHeight) / 2)
+  );
+}
