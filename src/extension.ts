@@ -9,6 +9,7 @@ import {
   nextCopyName,
   validateFileName
 } from "./fileOperations";
+import { parseIconThemeManifest } from "./extensionIconTheme";
 import {
   createNameMatcher,
   directoryNameFromExcludePattern
@@ -677,39 +678,7 @@ async function loadCachedIconTheme(
     const manifest = JSON.parse(
       await fs.promises.readFile(manifestPath, "utf8")
     ) as Record<string, unknown>;
-    const manifestDir = path.dirname(manifestPath);
-    const iconDefinitions = asRecord(manifest.iconDefinitions);
-
-    const resolveIconPath = (definitionId: unknown): string | undefined => {
-      if (typeof definitionId !== "string") return undefined;
-      if (!iconDefinitions) return undefined;
-      const definition = asRecord(iconDefinitions[definitionId]);
-      const iconPath = definition && typeof definition.iconPath === "string"
-        ? definition.iconPath
-        : undefined;
-      return iconPath ? path.resolve(manifestDir, iconPath) : undefined;
-    };
-
-    const resolveIconPathMap = (value: unknown): Record<string, string> => {
-      const source = asRecord(value);
-      if (!source) return {};
-      const result: Record<string, string> = {};
-      for (const [key, definitionId] of Object.entries(source)) {
-        const iconPath = resolveIconPath(definitionId);
-        if (iconPath) {
-          result[key.toLocaleLowerCase()] = iconPath;
-        }
-      }
-      return result;
-    };
-
-    const cached: CachedIconThemePayload = {
-      file: resolveIconPath(manifest.file),
-      folder: resolveIconPath(manifest.folder),
-      fileExtensions: resolveIconPathMap(manifest.fileExtensions),
-      fileNames: resolveIconPathMap(manifest.fileNames),
-      folderNames: resolveIconPathMap(manifest.folderNames)
-    };
+    const cached = parseIconThemeManifest(manifest, path.dirname(manifestPath));
     iconThemeCache.set(cacheKey, cached);
     return cached;
   } catch {

@@ -14,6 +14,7 @@ import {
   createNameMatcher as createExtensionNameMatcher,
   directoryNameFromExcludePattern
 } from "../src/extensionSearch.ts";
+import { parseIconThemeManifest } from "../src/extensionIconTheme.ts";
 import { formatSize } from "../src/webviewFormat.ts";
 import {
   copySelectionStatus,
@@ -103,6 +104,33 @@ test("directoryNameFromExcludePattern extracts safe directory names", () => {
   assert.equal(directoryNameFromExcludePattern("**/*.tmp"), undefined);
   assert.equal(directoryNameFromExcludePattern("{dist,build}"), undefined);
   assert.equal(directoryNameFromExcludePattern(""), undefined);
+});
+
+test("parseIconThemeManifest resolves icon definitions and lowercases lookup keys", () => {
+  assert.deepEqual(
+    parseIconThemeManifest(
+      {
+        iconDefinitions: {
+          fileDef: { iconPath: "./icons/file.svg" },
+          folderDef: { iconPath: "./icons/folder.svg" },
+          tsDef: { iconPath: "./icons/ts.svg" }
+        },
+        file: "fileDef",
+        folder: "folderDef",
+        fileExtensions: { TS: "tsDef", bad: "missingDef" },
+        fileNames: { "README.md": "fileDef" },
+        folderNames: { SRC: "folderDef" }
+      },
+      "C:\\Theme"
+    ),
+    {
+      file: "C:\\Theme\\icons\\file.svg",
+      folder: "C:\\Theme\\icons\\folder.svg",
+      fileExtensions: { ts: "C:\\Theme\\icons\\ts.svg" },
+      fileNames: { "readme.md": "C:\\Theme\\icons\\file.svg" },
+      folderNames: { src: "C:\\Theme\\icons\\folder.svg" }
+    }
+  );
 });
 
 test("formatSize formats bytes and larger units", () => {
