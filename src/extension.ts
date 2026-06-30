@@ -158,6 +158,14 @@ export function activate(context: vscode.ExtensionContext): void {
         await openUriInExplorer(context, uri);
       }
     ),
+    vscode.commands.registerCommand(
+      "workspaceFileExplorer.revealInSimpleFileExplorer",
+      async (uri?: vscode.Uri) => {
+        const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
+        if (!targetUri || targetUri.scheme !== "file") return;
+        await openUriInExplorer(context, targetUri);
+      }
+    ),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("simpleFileExplorer.viewLocation")) {
         handleViewLocationChanged();

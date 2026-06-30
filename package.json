@@ -41,6 +41,7 @@
     "onCommand:workspaceFileExplorer.toggleViewLocation",
     "onCommand:workspaceFileExplorer.toggle",
     "onCommand:workspaceFileExplorer.openFromExplorer",
+    "onCommand:workspaceFileExplorer.revealInSimpleFileExplorer",
     "onView:workspaceFileExplorer.sidebar"
   ],
   "main": "./dist/extension.js",
@@ -61,6 +62,11 @@
       {
         "command": "workspaceFileExplorer.openFromExplorer",
         "title": "Open in Simple File Explorer",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "workspaceFileExplorer.revealInSimpleFileExplorer",
+        "title": "Reveal in Simple File Explorer",
         "icon": "$(folder-opened)"
       }
     ],
@@ -108,6 +114,13 @@
           "command": "workspaceFileExplorer.openFromExplorer",
           "when": "resourceScheme == file",
           "group": "navigation@9"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "workspaceFileExplorer.revealInSimpleFileExplorer",
+          "when": "resourceScheme == file",
+          "group": "9_cutcopypaste@60"
         }
       ]
     },
