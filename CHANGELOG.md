@@ -1,5 +1,22 @@
 # Change Log
 
+## 0.2.1
+
+- Added **Reveal in Simple File Explorer** to editor tab context menus so the
+  active editor file can be opened and selected in Simple File Explorer.
+- Added an in-webview button for switching between editor and sidebar view
+  locations while preserving the current workspace session.
+- Improved tiled-pane selection and reveal behavior so pane-local drag
+  selection, focus, and scroll-to-selected-item handling use the correct pane.
+- Improved file operation edge cases, including Windows filename validation and
+  copying folders into generated copy targets.
+- Refactored file operations, workspace session handling, tree helpers,
+  filtering/sorting, virtual-list calculations, selection state, recursive
+  search parsing, and icon-theme parsing into focused tested modules.
+- Expanded utility test coverage for path handling, recursive search matching,
+  icon-theme parsing, pane layout, virtual scrolling, selection behavior, and
+  file-operation helpers.
+
 ## 0.2.0
 
 - Added editor-only tiled tabs mode, which shows all open internal explorer tabs

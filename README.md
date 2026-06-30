@@ -17,12 +17,15 @@ Use any of these methods:
   File Explorer icon in the Activity Bar.
 - In the built-in VS Code Explorer, right-click a file or folder and select
   **Open in Simple File Explorer**.
+- In an editor tab context menu, select **Reveal in Simple File Explorer** to
+  open the containing folder and select the active file.
 
 By default, Simple File Explorer opens in the editor area. Set
 `simpleFileExplorer.viewLocation` to `sidebar` to use the Activity Bar sidebar
 view instead; in sidebar mode the Activity Bar entry is shown and the status bar
 button is hidden. The command focuses the existing explorer view when it is
-already open.
+already open. Use the toolbar location button to move the current explorer
+between the editor area and sidebar.
 
 ## Demo
 
@@ -36,8 +39,11 @@ already open.
 - Opens or focuses with `Ctrl+Alt+E` (`Cmd+Alt+E` on macOS).
 - Opens in the editor area by default.
 - Optional Activity Bar sidebar mode.
+- Toolbar button for switching between editor and sidebar modes.
 - Fills the available editor or sidebar surface without extra webview padding.
 - Opens files and folders from the built-in VS Code Explorer context menu.
+- Reveals the active editor tab file in Simple File Explorer from the editor
+  tab context menu.
 - One-click return to the workspace root.
 - In multi-root workspaces, Home returns to the root containing the current path.
 - Multiple independent file tabs.
@@ -180,9 +186,12 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
   Bar 中的 Simple File Explorer 图标。
 - 在 VS Code 自带 Explorer 中右键文件或目录，选择
   **Open in Simple File Explorer**。
+- 在编辑器页签右键菜单中选择 **Reveal in Simple File Explorer**，可以打开当前
+  文件所在目录并选中该文件。
 
 快捷键和命令会优先切换到已经打开的 Simple File Explorer。默认 editor 模式会显示
-底部状态栏按钮，并隐藏 Activity Bar 入口；切换到 sidebar 模式后则相反。
+底部状态栏按钮，并隐藏 Activity Bar 入口；切换到 sidebar 模式后则相反。也可以
+通过工具栏中的位置切换按钮在 editor 和 sidebar 模式之间移动当前浏览器。
 
 ## 主要功能
 
@@ -217,6 +226,8 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 复制、移动、删除到回收站和永久删除会显示 VS Code 进度提示。
 - 支持 `Ctrl` 点击、`Shift` 点击、鼠标框选和 `Ctrl+A` 全选。
 - 支持右键菜单复制、剪切、粘贴、重命名、删除，以及空白区域粘贴。
+- 可从编辑器页签右键菜单中将当前文件定位到 Simple File Explorer。
+- 可通过工具栏按钮在 editor 和 sidebar 显示模式之间快速切换。
 - 按名称/修改时间/大小排序、隐藏点文件切换。
 - 可通过右键菜单显示或隐藏修改时间和大小列。
 - 自动刷新当前打开目录，不递归监控整个项目。

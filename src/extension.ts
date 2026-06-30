@@ -442,6 +442,9 @@ async function handleMessage(
           await vscode.commands.executeCommand("workbench.action.closeSidebar");
         }
         break;
+      case "toggleViewLocation":
+        await vscode.commands.executeCommand("workspaceFileExplorer.toggleViewLocation");
+        break;
       case "search":
         await searchRecursively(
           panel,

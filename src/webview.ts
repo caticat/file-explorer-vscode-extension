@@ -190,6 +190,9 @@ app.innerHTML = `
       <button id="tile-tabs" class="icon-button" title="Tile tabs" aria-label="Tile tabs" aria-pressed="false">${toolbarIcon(
         "M2.5 2.5h5v11h-5v-11ZM9.5 2.5h4v4.5h-4V2.5ZM9.5 9h4v4.5h-4V9Z"
       )}</button>
+      <button id="toggle-view-location" class="icon-button" title="Move to Sidebar" aria-label="Move to Sidebar">${toolbarIcon(
+        "M2 2.5h12v11H2v-11ZM5.5 2.5v11"
+      )}</button>
       <div id="tile-active-path" class="tile-active-path pane-mode-control" title=""></div>
       <span class="tabs-bar-separator pane-mode-control" aria-hidden="true"></span>
       <button id="tile-list-view" class="icon-button pane-mode-control" title="Details view" aria-label="Details view">${toolbarIcon(
@@ -349,6 +352,7 @@ const elements = {
   tabs: byId("tabs"),
   newTab: button("new-tab"),
   tileTabs: button("tile-tabs"),
+  toggleViewLocation: button("toggle-view-location"),
   tileActivePath: byId("tile-active-path"),
   tileListView: button("tile-list-view"),
   tileGridView: button("tile-grid-view"),
@@ -409,6 +413,10 @@ elements.newTab.addEventListener("click", () => {
   createTab(getWorkspacePath());
 });
 elements.tileTabs.addEventListener("click", togglePaneLayout);
+elements.toggleViewLocation.addEventListener("click", () => {
+  flushSavedSession();
+  vscode.postMessage({ command: "toggleViewLocation" });
+});
 elements.tileListView.addEventListener("click", () => setAllTabsViewMode("list"));
 elements.tileGridView.addEventListener("click", () => setAllTabsViewMode("grid"));
 elements.tileToggleHidden.addEventListener("click", toggleAllHiddenFiles);
@@ -1259,6 +1267,8 @@ function render(): void {
   elements.tileTabs.setAttribute("aria-pressed", String(paneMode));
   elements.tileTabs.title = paneMode ? "Return to tab view" : "Tile tabs";
   elements.tileTabs.setAttribute("aria-label", paneMode ? "Return to tab view" : "Tile tabs");
+  elements.toggleViewLocation.title = viewKind === "sidebar" ? "Open in Editor" : "Move to Sidebar";
+  elements.toggleViewLocation.setAttribute("aria-label", elements.toggleViewLocation.title);
   elements.tileActivePath.textContent = paneMode ? tab.path : "";
   elements.tileActivePath.title = paneMode ? tab.path : "";
   elements.tileListView.classList.toggle("active", paneMode && tabs.every((candidate) => candidate.viewMode === "list"));
