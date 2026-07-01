@@ -8,6 +8,9 @@ import {
   type SelectionState as PureSelectionState,
   dragSelectionState,
   emptySelectionState,
+  keyboardActivationSelectionState,
+  type KeyboardNavigationKey,
+  keyboardNavigationState,
   normalizedRect,
   rectsIntersect,
   selectAllSelectionState,
@@ -142,6 +145,7 @@ let clipboardPaths: string[] = [];
 let clipboardCut = false;
 let selectionDrag: SelectionDragState | undefined;
 let suppressedDragClick: SuppressedDragClick | undefined;
+let textPasteSearchInput: HTMLInputElement | undefined;
 let keyboardTarget: "items" | "tree" = "items";
 let treeVisible = false;
 let treeShowHidden = false;
@@ -460,6 +464,7 @@ elements.sidebarListView.addEventListener("click", () => setViewMode("list"));
 elements.sidebarGridView.addEventListener("click", () => setViewMode("grid"));
 elements.sidebarToggleHidden.addEventListener("click", () => toggleHiddenFiles());
 elements.searchInput.addEventListener("input", debounce(runSearch, 180));
+bindSearchInputInteractions(elements.searchInput, activeTab);
 elements.recursiveSearch.addEventListener("click", () => {
   preferredRecursiveSearch = !preferredRecursiveSearch;
   for (const tab of tabs) {
@@ -529,9 +534,15 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "l") {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    clearSelection();
+  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "l") {
     event.preventDefault();
     beginAddressEdit();
+  } else if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key === "/") {
+    event.preventDefault();
+    focusSearchInput();
   } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
     event.preventDefault();
     selectAllItems();
@@ -556,6 +567,12 @@ window.addEventListener("keydown", (event) => {
   } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
     event.preventDefault();
     pasteClipboard();
+  } else if (!event.metaKey && !event.altKey && isItemNavigationKey(event.key)) {
+    event.preventDefault();
+    moveKeyboardSelection(event.key, event.ctrlKey, event.shiftKey);
+  } else if (!event.metaKey && !event.altKey && event.key === " ") {
+    event.preventDefault();
+    activateFocusedSelection(event.ctrlKey, event.shiftKey);
   } else if (event.key === "Delete") {
     event.preventDefault();
     deleteSelection(event.shiftKey);
@@ -768,6 +785,12 @@ function handleHostMessage(message: Record<string, unknown>): void {
       const changedPath = String(message.path);
       const preserveFocus = message.preserveFocus === true;
       const focusViewport = message.focusViewport === true;
+      const revealPaths = Array.isArray(message.revealPaths)
+        ? message.revealPaths.filter((value): value is string => typeof value === "string")
+        : [];
+      const revealPath =
+        revealPaths[revealPaths.length - 1] ??
+        (message.revealPath ? String(message.revealPath) : undefined);
       if (message.clearClipboard) {
         clipboardPaths = [];
         clipboardCut = false;
@@ -776,9 +799,10 @@ function handleHostMessage(message: Record<string, unknown>): void {
       let refreshed = false;
       for (const tab of tabs) {
         if (normalizeForComparison(tab.path) === normalizeForComparison(changedPath)) {
-          tab.selectedPath = message.revealPath ? String(message.revealPath) : undefined;
-          tab.selectedPaths = tab.selectedPath ? [tab.selectedPath] : [];
-          tab.pendingRevealPath = tab.selectedPath;
+          tab.selectedPath = revealPath;
+          tab.selectedPaths = revealPaths.length ? revealPaths : revealPath ? [revealPath] : [];
+          tab.selectionAnchorPath = tab.selectedPaths[0];
+          tab.pendingRevealPath = revealPath;
           tab.focusViewportAfterLoad = focusViewport;
           loadDirectory(tab, false, preserveFocus);
           refreshed = true;
@@ -1275,15 +1299,6 @@ function render(): void {
   elements.tileGridView.classList.toggle("active", paneMode && tabs.every((candidate) => candidate.viewMode === "grid"));
   elements.tileToggleHidden.classList.toggle("active", paneMode && tabs.some((candidate) => candidate.showHidden));
   elements.tileToggleHidden.title = activeTab().showHidden ? "Hide hidden files" : "Show hidden files";
-  if (paneMode) {
-    renderPaneGrid();
-  } else {
-    elements.paneGrid.replaceChildren();
-    renderVirtualItems(tab);
-  }
-  elements.status.textContent = tab.status;
-  elements.selectionStatus.textContent =
-    tab.selectedPaths.length > 1 ? `${tab.selectedPaths.length.toLocaleString()} selected` : "";
   const showListHeader = tab.viewMode === "list";
   elements.listHeader.classList.toggle("hidden", !showListHeader);
   elements.listView.classList.toggle("active", tab.viewMode === "list");
@@ -1298,6 +1313,15 @@ function render(): void {
   elements.sidebarGridView.classList.toggle("active", tab.viewMode === "grid");
   elements.sidebarToggleHidden.classList.toggle("active", tab.showHidden);
   elements.sidebarToggleHidden.title = tab.showHidden ? "Hide hidden files" : "Show hidden files";
+  if (paneMode) {
+    renderPaneGrid();
+  } else {
+    elements.paneGrid.replaceChildren();
+    renderVirtualItems(tab);
+  }
+  elements.status.textContent = tab.status;
+  elements.selectionStatus.textContent =
+    tab.selectedPaths.length > 1 ? `${tab.selectedPaths.length.toLocaleString()} selected` : "";
   updateListColumnMenu();
   for (const header of Array.from(
     elements.listHeader.querySelectorAll<HTMLButtonElement>("button[data-sort]")
@@ -2006,6 +2030,10 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
     focusTab(tab.id);
     runSearchForTab(tab, searchInput.value.trim());
   }, 180));
+  bindSearchInputInteractions(searchInput, () => {
+    focusTab(tab.id);
+    return tab;
+  });
   const recursive = document.createElement("button");
   recursive.className = "search-option";
   recursive.dataset.role = "recursiveSearch";
@@ -2655,6 +2683,110 @@ function selectByTypeAhead(character: string): void {
   }
 }
 
+function focusSearchInput(): void {
+  const pane =
+    layoutMode === "panes" && viewKind === "editor"
+      ? Array.from(elements.paneGrid.querySelectorAll<HTMLElement>(".explorer-pane")).find(
+          (candidate) => candidate.dataset.tabId === activeTabId
+        )
+      : undefined;
+  const paneSearchInput = pane?.querySelector<HTMLInputElement>("[data-role='search']");
+  (paneSearchInput ?? elements.searchInput).focus();
+}
+
+function moveKeyboardSelection(
+  key: KeyboardNavigationKey,
+  preserveSelection: boolean,
+  rangeSelection: boolean
+): void {
+  const tab = activeTab();
+  const targets = renderTargetsForTab(tab);
+  const next = keyboardNavigationState({
+    state: tab,
+    visibleItems: tab.filteredItems,
+    viewMode: tab.viewMode,
+    columns: Math.max(1, Math.floor(targets.viewport.clientWidth / gridItemWidth())),
+    key,
+    preserveSelection,
+    rangeSelection,
+    platform
+  });
+  if (!next) return;
+
+  applySelectionState(tab, next);
+  revealSelectedItem(tab);
+}
+
+function activateFocusedSelection(toggle: boolean, range: boolean): void {
+  const tab = activeTab();
+  const next = keyboardActivationSelectionState({
+    state: tab,
+    visibleItems: tab.filteredItems,
+    toggle,
+    range,
+    platform
+  });
+  if (!next) return;
+
+  applySelectionState(tab, next);
+  revealSelectedItem(tab);
+}
+
+function bindSearchInputInteractions(
+  searchInput: HTMLInputElement,
+  tabProvider: () => ExplorerTab
+): void {
+  searchInput.addEventListener("focus", () => {
+    textPasteSearchInput = searchInput;
+  });
+  searchInput.addEventListener("blur", () => {
+    if (textPasteSearchInput === searchInput) {
+      textPasteSearchInput = undefined;
+    }
+  });
+  searchInput.addEventListener("keydown", (event) => {
+    handleSearchInputKeydown(tabProvider(), searchInput, event);
+  });
+  searchInput.addEventListener("paste", (event) => {
+    handleSearchInputPaste(event);
+  });
+}
+
+function handleSearchInputKeydown(
+  tab: ExplorerTab,
+  searchInput: HTMLInputElement,
+  event: KeyboardEvent
+): void {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    textPasteSearchInput = undefined;
+    resetSearchAndFocusItems(tab, searchInput);
+  }
+}
+
+function handleSearchInputPaste(event: ClipboardEvent): void {
+  if (event.currentTarget === textPasteSearchInput) {
+    return;
+  }
+  event.preventDefault();
+}
+
+function resetSearchAndFocusItems(tab: ExplorerTab, searchInput: HTMLInputElement): void {
+  if (tab.searchQuery || searchInput.value) {
+    searchInput.value = "";
+    runSearchForTab(tab, "");
+  }
+  searchInput.blur();
+  requestAnimationFrame(() => {
+    renderTargetsForTab(tab).viewport.focus({ preventScroll: true });
+  });
+}
+
+function isItemNavigationKey(key: string): key is KeyboardNavigationKey {
+  return key === "ArrowUp" || key === "ArrowDown" || key === "ArrowLeft" || key === "ArrowRight";
+}
+
 function updateSelection(
   tab: ExplorerTab,
   itemPath: string,
@@ -2923,10 +3055,18 @@ function revealSelectedItem(tab: ExplorerTab, focusSelected = true): void {
     scheduleRender();
     requestAnimationFrame(() => {
       if (!focusSelected) return;
-      const selected = nextTargets.items.querySelector<HTMLElement>(".file-item.selected");
-      selected?.focus({ preventScroll: true });
+      focusItemElement(nextTargets.items, tab.selectedPath);
     });
   });
+}
+
+function focusItemElement(container: HTMLElement, itemPath: string | undefined): void {
+  if (!itemPath) return;
+  const normalizedPath = normalizeForComparison(itemPath);
+  const item = Array.from(container.querySelectorAll<HTMLElement>(".file-item")).find(
+    (candidate) => candidate.dataset.path && normalizeForComparison(candidate.dataset.path) === normalizedPath
+  );
+  item?.focus({ preventScroll: true });
 }
 
 function renderTargetsForTab(tab: ExplorerTab): PaneRenderElements {

@@ -1382,20 +1382,20 @@ async function pasteItems(
   cut: boolean
 ): Promise<void> {
   if (!paths.length) return;
-  const lastTarget = await vscode.window.withProgress(
+  const targets = await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
       title: cut ? "Moving items" : "Copying items",
       cancellable: false
     },
     async (progress) => {
-      let lastTarget: string | undefined;
+      const targets: string[] = [];
       const increment = paths.length > 0 ? 100 / paths.length : 100;
 
       for (const source of paths) {
         progress.report({ message: path.basename(source) });
         if (cut && path.resolve(path.dirname(source)) === path.resolve(destination)) {
-          lastTarget = source;
+          targets.push(source);
           progress.report({ increment });
           continue;
         }
@@ -1414,18 +1414,20 @@ async function pasteItems(
         } else {
           await copyItem(source, target);
         }
-        lastTarget = target;
+        targets.push(target);
         progress.report({ increment });
       }
 
-      return lastTarget;
+      return targets;
     }
   );
 
+  const lastTarget = targets[targets.length - 1];
   await panel.webview.postMessage({
     command: "operationComplete",
     path: destination,
     revealPath: lastTarget,
+    revealPaths: targets,
     clearClipboard: cut
   });
 }

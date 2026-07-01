@@ -41,6 +41,8 @@ import {
 import {
   dragSelectionState,
   emptySelectionState,
+  keyboardActivationSelectionState,
+  keyboardNavigationState,
   normalizedRect,
   rectsIntersect,
   selectAllSelectionState,
@@ -562,6 +564,173 @@ test("updateSelectionState selects, toggles, and range-selects visible items", (
       selectedPath: "/repo/a",
       selectedPaths: ["/repo/a", "/repo/b"],
       selectionAnchorPath: "/repo/b"
+    }
+  );
+});
+
+test("keyboardNavigationState single-selects during plain list navigation", () => {
+  const visibleItems = [{ path: "/repo/a" }, { path: "/repo/b" }, { path: "/repo/c" }];
+
+  assert.deepEqual(
+    keyboardNavigationState({
+      state: { selectedPath: "/repo/b", selectedPaths: ["/repo/a"] },
+      visibleItems,
+      viewMode: "list",
+      columns: 1,
+      key: "ArrowDown",
+      preserveSelection: false,
+      rangeSelection: false,
+      platform: "linux"
+    }),
+    {
+      selectedPath: "/repo/c",
+      selectedPaths: ["/repo/c"],
+      selectionAnchorPath: "/repo/c"
+    }
+  );
+
+  assert.equal(
+    keyboardNavigationState({
+      state: { selectedPath: "/repo/b", selectedPaths: ["/repo/a"] },
+      visibleItems,
+      viewMode: "list",
+      columns: 1,
+      key: "ArrowRight",
+      preserveSelection: false,
+      rangeSelection: false,
+      platform: "linux"
+    }),
+    undefined
+  );
+});
+
+test("keyboardNavigationState supports Ctrl focus movement and Shift range selection", () => {
+  const visibleItems = [{ path: "/repo/a" }, { path: "/repo/b" }, { path: "/repo/c" }];
+
+  assert.deepEqual(
+    keyboardNavigationState({
+      state: { selectedPath: "/repo/b", selectedPaths: ["/repo/a"], selectionAnchorPath: "/repo/a" },
+      visibleItems,
+      viewMode: "list",
+      columns: 1,
+      key: "ArrowDown",
+      preserveSelection: true,
+      rangeSelection: false,
+      platform: "linux"
+    }),
+    {
+      selectedPath: "/repo/c",
+      selectedPaths: ["/repo/a"],
+      selectionAnchorPath: "/repo/a"
+    }
+  );
+
+  assert.deepEqual(
+    keyboardNavigationState({
+      state: { selectedPath: "/repo/a", selectedPaths: ["/repo/a"], selectionAnchorPath: "/repo/a" },
+      visibleItems,
+      viewMode: "list",
+      columns: 1,
+      key: "ArrowDown",
+      preserveSelection: false,
+      rangeSelection: true,
+      platform: "linux"
+    }),
+    {
+      selectedPath: "/repo/b",
+      selectedPaths: ["/repo/a", "/repo/b"],
+      selectionAnchorPath: "/repo/a"
+    }
+  );
+});
+
+test("keyboardNavigationState moves by columns in grid mode", () => {
+  const visibleItems = ["/a", "/b", "/c", "/d", "/e"].map((itemPath) => ({ path: itemPath }));
+
+  assert.deepEqual(
+    keyboardNavigationState({
+      state: { selectedPath: "/b", selectedPaths: [] },
+      visibleItems,
+      viewMode: "grid",
+      columns: 2,
+      key: "ArrowDown",
+      preserveSelection: false,
+      rangeSelection: false,
+      platform: "linux"
+    })?.selectedPath,
+    "/d"
+  );
+  assert.deepEqual(
+    keyboardNavigationState({
+      state: { selectedPath: "/d", selectedPaths: [] },
+      visibleItems,
+      viewMode: "grid",
+      columns: 2,
+      key: "ArrowUp",
+      preserveSelection: false,
+      rangeSelection: false,
+      platform: "linux"
+    })?.selectedPath,
+    "/b"
+  );
+  assert.deepEqual(
+    keyboardNavigationState({
+      state: { selectedPath: "/d", selectedPaths: [] },
+      visibleItems,
+      viewMode: "grid",
+      columns: 2,
+      key: "ArrowRight",
+      preserveSelection: false,
+      rangeSelection: false,
+      platform: "linux"
+    })?.selectedPath,
+    "/e"
+  );
+});
+
+test("keyboardActivationSelectionState selects plainly and toggles with Ctrl", () => {
+  const visibleItems = [{ path: "/repo/a" }, { path: "/repo/b" }];
+
+  assert.deepEqual(
+    keyboardActivationSelectionState({
+      state: { selectedPath: "/repo/b", selectedPaths: ["/repo/a"] },
+      visibleItems,
+      toggle: false,
+      range: false,
+      platform: "linux"
+    }),
+    {
+      selectedPath: "/repo/b",
+      selectedPaths: ["/repo/b"],
+      selectionAnchorPath: "/repo/b"
+    }
+  );
+  assert.deepEqual(
+    keyboardActivationSelectionState({
+      state: { selectedPath: "/repo/b", selectedPaths: ["/repo/a"] },
+      visibleItems,
+      toggle: true,
+      range: false,
+      platform: "linux"
+    }),
+    {
+      selectedPath: "/repo/b",
+      selectedPaths: ["/repo/a", "/repo/b"],
+      selectionAnchorPath: "/repo/b"
+    }
+  );
+  assert.deepEqual(
+    keyboardActivationSelectionState({
+      state: { selectedPath: "/repo/a", selectedPaths: ["/repo/a", "/repo/b"] },
+      visibleItems,
+      toggle: true,
+      range: false,
+      platform: "linux"
+    }),
+    {
+      selectedPath: "/repo/a",
+      selectedPaths: ["/repo/b"],
+      selectionAnchorPath: "/repo/a"
     }
   );
 });

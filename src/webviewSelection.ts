@@ -8,6 +8,8 @@ export interface SelectionState {
   selectionAnchorPath?: string;
 }
 
+export type KeyboardNavigationKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
+
 export interface RectLike {
   left: number;
   top: number;
@@ -85,6 +87,109 @@ export function selectAllSelectionState(paths: string[]): SelectionState {
     selectedPath: paths[paths.length - 1],
     selectedPaths: [...paths],
     selectionAnchorPath: paths[0]
+  };
+}
+
+export function keyboardNavigationState(options: {
+  state: SelectionState;
+  visibleItems: SelectionItem[];
+  viewMode: "list" | "grid";
+  columns: number;
+  key: KeyboardNavigationKey;
+  preserveSelection: boolean;
+  rangeSelection: boolean;
+  platform: string;
+}): SelectionState | undefined {
+  if (options.visibleItems.length === 0) return undefined;
+  if (
+    options.viewMode === "list" &&
+    (options.key === "ArrowLeft" || options.key === "ArrowRight")
+  ) {
+    return undefined;
+  }
+
+  const currentIndex = currentSelectionIndex(options.state, options.visibleItems, options.platform);
+  const startIndex = currentIndex >= 0 ? currentIndex : 0;
+  const columns = Math.max(1, options.columns);
+  let nextIndex = startIndex;
+
+  if (options.key === "ArrowUp") {
+    nextIndex = options.viewMode === "grid" ? startIndex - columns : startIndex - 1;
+  } else if (options.key === "ArrowDown") {
+    nextIndex = options.viewMode === "grid" ? startIndex + columns : startIndex + 1;
+  } else if (options.key === "ArrowLeft") {
+    nextIndex = startIndex - 1;
+  } else if (options.key === "ArrowRight") {
+    nextIndex = startIndex + 1;
+  }
+
+  nextIndex = Math.max(0, Math.min(options.visibleItems.length - 1, nextIndex));
+  const selectedPath = options.visibleItems[nextIndex].path;
+  if (options.rangeSelection) {
+    return rangeSelectionState({
+      state: options.state,
+      selectedPath,
+      visibleItems: options.visibleItems,
+      platform: options.platform
+    });
+  }
+  if (options.preserveSelection) {
+    return {
+      selectedPath,
+      selectedPaths: [...options.state.selectedPaths],
+      selectionAnchorPath: options.state.selectionAnchorPath ?? selectedPath
+    };
+  }
+
+  return {
+    selectedPath,
+    selectedPaths: [selectedPath],
+    selectionAnchorPath: selectedPath
+  };
+}
+
+export function keyboardActivationSelectionState(options: {
+  state: SelectionState;
+  visibleItems: SelectionItem[];
+  toggle: boolean;
+  range: boolean;
+  platform: string;
+}): SelectionState | undefined {
+  if (options.visibleItems.length === 0) return undefined;
+  const currentIndex = currentSelectionIndex(options.state, options.visibleItems, options.platform);
+  const selectedPath = options.visibleItems[Math.max(0, currentIndex)].path;
+  if (options.range) {
+    return rangeSelectionState({
+      state: options.state,
+      selectedPath,
+      visibleItems: options.visibleItems,
+      platform: options.platform
+    });
+  }
+  if (!options.toggle) {
+    return {
+      selectedPath,
+      selectedPaths: [selectedPath],
+      selectionAnchorPath: selectedPath
+    };
+  }
+
+  const selectedPaths = [...options.state.selectedPaths];
+  const normalized = normalizeForComparison(selectedPath, options.platform);
+  const existing = selectedPaths.findIndex(
+    (itemPath) => normalizeForComparison(itemPath, options.platform) === normalized
+  );
+
+  if (existing >= 0) {
+    selectedPaths.splice(existing, 1);
+  } else {
+    selectedPaths.push(selectedPath);
+  }
+
+  return {
+    selectedPath,
+    selectedPaths,
+    selectionAnchorPath: selectedPath
   };
 }
 
@@ -184,6 +289,53 @@ export function shouldSuppressDragClickState(
   const distanceX = Math.abs(event.clientX - pending.clientX);
   const distanceY = Math.abs(event.clientY - pending.clientY);
   return distanceX <= tolerance && distanceY <= tolerance;
+}
+
+function currentSelectionIndex(
+  state: SelectionState,
+  visibleItems: SelectionItem[],
+  platform: string
+): number {
+  const currentPath = state.selectedPath ?? state.selectedPaths[state.selectedPaths.length - 1];
+  if (!currentPath) return -1;
+  const normalized = normalizeForComparison(currentPath, platform);
+  return visibleItems.findIndex(
+    (item) => normalizeForComparison(item.path, platform) === normalized
+  );
+}
+
+function rangeSelectionState(options: {
+  state: SelectionState;
+  selectedPath: string;
+  visibleItems: SelectionItem[];
+  platform: string;
+}): SelectionState {
+  const anchorPath = options.state.selectionAnchorPath ?? options.selectedPath;
+  const start = options.visibleItems.findIndex(
+    (item) =>
+      normalizeForComparison(item.path, options.platform) ===
+      normalizeForComparison(anchorPath, options.platform)
+  );
+  const end = options.visibleItems.findIndex(
+    (item) =>
+      normalizeForComparison(item.path, options.platform) ===
+      normalizeForComparison(options.selectedPath, options.platform)
+  );
+
+  if (start < 0 || end < 0) {
+    return {
+      selectedPath: options.selectedPath,
+      selectedPaths: [options.selectedPath],
+      selectionAnchorPath: options.selectedPath
+    };
+  }
+
+  const [from, to] = start < end ? [start, end] : [end, start];
+  return {
+    selectedPath: options.selectedPath,
+    selectedPaths: options.visibleItems.slice(from, to + 1).map((item) => item.path),
+    selectionAnchorPath: anchorPath
+  };
 }
 
 function normalizeForComparison(value: string, platform: string): string {

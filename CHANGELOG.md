@@ -1,5 +1,20 @@
 # Change Log
 
+## 0.2.2
+
+- Changed the default keyboard shortcut to toggle the editor explorer instead
+  of only opening or focusing it.
+- Added `/` search focus plus Windows Explorer-style keyboard selection with
+  arrow keys, `Space`, `Ctrl`, and `Shift` modifiers.
+- Improved search focus handling so text paste remains limited to an explicitly
+  focused search box while file paste stays in the file view.
+- Selected all newly pasted files after multi-item paste operations instead of
+  selecting only the last pasted item.
+- Fixed switching from large-icon view to details view so the virtualized file
+  list renders both files and folders immediately.
+- Expanded README guidance with usage expectations, feedback notes, and the
+  updated keyboard behavior.
+
 ## 0.2.1
 
 - Added **Reveal in Simple File Explorer** to editor tab context menus so the
