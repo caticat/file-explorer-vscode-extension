@@ -242,6 +242,11 @@ button {
   min-width: 0;
 }
 
+.pane-address-container {
+  min-width: 0;
+  height: 24px;
+}
+
 .pane-toolbar {
   background: var(--vscode-editor-background);
 }
@@ -530,11 +535,25 @@ button {
   color: var(--vscode-input-foreground);
 }
 
+.address-container {
+  flex: 1;
+  min-width: 80px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 5px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+}
+
 .address,
 .address-input {
   flex: 1;
   min-width: 80px;
-  height: 30px;
+  height: 100%;
+  border: 0;
+  background: transparent;
 }
 
 .address {
@@ -542,7 +561,6 @@ button {
   align-items: center;
   overflow-x: auto;
   padding: 0 6px;
-  border-radius: 5px;
   cursor: text;
   scrollbar-width: none;
   user-select: none;
@@ -557,9 +575,37 @@ button {
   outline: none;
 }
 
-.address-input:focus,
+.address-container:focus-within,
 #search-input:focus {
   border-color: var(--vscode-focusBorder);
+}
+
+.recent-locations-button {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-right: 2px;
+  padding: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+}
+
+.recent-locations-button .toolbar-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.recent-locations-button:hover:not(:disabled),
+.recent-locations-button:focus {
+  outline: none;
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.recent-locations-button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .breadcrumb {
@@ -896,6 +942,55 @@ body.hide-size-column .file-size {
   box-shadow: 0 4px 16px rgb(0 0 0 / 28%);
 }
 
+.recent-locations-menu {
+  position: fixed;
+  z-index: 1001;
+  width: min(420px, calc(100vw - 12px));
+  max-width: calc(100vw - 12px);
+  padding: 4px;
+  border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
+  border-radius: 5px;
+  background: var(--vscode-menu-background);
+  color: var(--vscode-menu-foreground);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 28%);
+}
+
+.recent-locations-menu button {
+  display: grid;
+  width: 100%;
+  min-height: 42px;
+  padding: 5px 8px;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.recent-locations-menu button:hover,
+.recent-locations-menu button:focus {
+  outline: none;
+  color: var(--vscode-menu-selectionForeground);
+  background: var(--vscode-menu-selectionBackground);
+}
+
+.recent-location-name,
+.recent-location-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-location-name {
+  font-weight: 600;
+}
+
+.recent-location-path {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+
 .context-menu button {
   display: block;
   width: 100%;
@@ -1023,7 +1118,7 @@ body.sidebar-mode .icon-button {
   height: 22px;
 }
 
-body.sidebar-mode .address,
+body.sidebar-mode .address-container,
 body.sidebar-mode .address-input,
 body.sidebar-mode .search-box {
   flex-basis: 100%;
@@ -1043,6 +1138,12 @@ body.sidebar-mode .address {
 body.sidebar-mode .address-input,
 body.sidebar-mode #search-input {
   padding: 0 4px;
+}
+
+body.sidebar-mode .recent-locations-button {
+  width: 22px;
+  height: 22px;
+  margin-right: 1px;
 }
 
 body.sidebar-mode .search-icon {

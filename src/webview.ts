@@ -29,12 +29,17 @@ import {
   type IconThemePayload,
   type ListColumnPreferences,
   type WorkspaceSession,
+  RECENT_LOCATIONS_DISPLAY_LIMIT,
+  RECENT_LOCATIONS_SAVE_LIMIT,
+  addRecentLocation,
   initialActiveTabIndex,
   initialTabPaths,
   isWorkspaceSession,
   normalizeIconTheme,
+  normalizeRecentLocations,
   normalizeListColumns,
-  restoredLayoutMode
+  restoredLayoutMode,
+  visibleRecentLocations
 } from "./webviewState";
 import {
   canToggleTreeNodeState,
@@ -98,6 +103,7 @@ interface ExplorerTab {
   showHidden: boolean;
   preserveFocusAfterReveal?: boolean;
   focusViewportAfterLoad?: boolean;
+  pendingRecentLocation?: string;
   sortKey: "name" | "modified" | "size";
   sortDirection: "asc" | "desc";
   externalNavigationId?: string;
@@ -133,6 +139,7 @@ let iconTheme: IconThemePayload | undefined;
 let restoreWorkspaceSession = true;
 let tabs: ExplorerTab[] = [];
 let activeTabId = "";
+let recentLocations: string[] = [];
 let renderScheduled = false;
 let sessionSaveTimer = 0;
 let suppressSessionSave = false;
@@ -244,8 +251,13 @@ app.innerHTML = `
         )}</button>
       </div>
       <span class="toolbar-divider" aria-hidden="true"></span>
-      <div id="address" class="address"></div>
-      <input id="address-input" class="address-input hidden" spellcheck="false">
+      <div class="address-container">
+        <div id="address" class="address"></div>
+        <input id="address-input" class="address-input hidden" spellcheck="false">
+        <button id="recent-locations" class="recent-locations-button" title="Recent locations" aria-label="Recent locations">${toolbarIcon(
+          "M4 6l4 4 4-4"
+        )}</button>
+      </div>
       <div class="search-box">
         ${toolbarIcon("M6.5 2.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9.5 9.5 14 14", "search-icon")}
         <input
@@ -358,6 +370,7 @@ app.innerHTML = `
     <button id="toggle-modified-column-menu" role="menuitemcheckbox" aria-checked="true">Show Modified</button>
     <button id="toggle-size-column-menu" role="menuitemcheckbox" aria-checked="true">Show Size</button>
   </div>
+  <div id="recent-locations-menu" class="recent-locations-menu hidden" role="menu"></div>
 `;
 
 const elements = {
@@ -381,6 +394,7 @@ const elements = {
   newFolder: button("new-folder"),
   address: byId("address"),
   addressInput: input("address-input"),
+  recentLocations: button("recent-locations"),
   listView: button("list-view"),
   gridView: button("grid-view"),
   toggleHidden: button("toggle-hidden"),
@@ -407,6 +421,7 @@ const elements = {
   selectionBox: byId("selection-box"),
   paneGrid: byId("pane-grid"),
   contextMenu: byId("context-menu"),
+  recentLocationsMenu: byId("recent-locations-menu"),
   revealSystem: button("reveal-system"),
   showInExplorer: button("show-in-explorer"),
   itemMenuSeparator: byId("item-menu-separator"),
@@ -473,6 +488,10 @@ elements.address.addEventListener("click", (event) => {
   }
 });
 elements.address.addEventListener("dblclick", beginAddressEdit);
+elements.recentLocations.addEventListener("click", (event) => {
+  event.stopPropagation();
+  showRecentLocationsMenu(elements.recentLocations, activeTab());
+});
 elements.listView.addEventListener("click", () => setViewMode("list"));
 elements.gridView.addEventListener("click", () => setViewMode("grid"));
 elements.toggleHidden.addEventListener("click", () => toggleHiddenFiles());
@@ -535,6 +554,7 @@ elements.listHeader.addEventListener("contextmenu", (event) => {
 });
 elements.viewport.addEventListener("scroll", () => {
   hideContextMenu();
+  hideRecentLocationsMenu();
   activeTab().scrollTop = elements.viewport.scrollTop;
   scheduleRender();
 });
@@ -550,6 +570,7 @@ window.addEventListener("resize", scheduleRender);
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hideContextMenu();
+    hideRecentLocationsMenu();
   }
 
   if (isEditableTarget(event.target)) {
@@ -615,6 +636,9 @@ window.addEventListener("pointerdown", (event) => {
   if (!elements.contextMenu.contains(event.target as Node)) {
     hideContextMenu();
   }
+  if (!elements.recentLocationsMenu.contains(event.target as Node)) {
+    hideRecentLocationsMenu();
+  }
 });
 elements.viewport.addEventListener("pointerdown", beginSelectionDrag);
 elements.viewport.addEventListener("pointerdown", () => {
@@ -664,6 +688,11 @@ function handleHostMessage(message: Record<string, unknown>): void {
       preferredRecursiveSearch = message.preferredRecursiveSearch === true;
       listColumns = normalizeListColumns(message.listColumns);
       iconTheme = normalizeIconTheme(message.iconTheme);
+      recentLocations = normalizeRecentLocations(
+        message.recentLocations,
+        RECENT_LOCATIONS_SAVE_LIMIT,
+        normalizeForComparison
+      );
       restoreWorkspaceSession = message.restoreWorkspaceSession !== false;
       const workspaceSession = isWorkspaceSession(message.workspaceSession)
         ? message.workspaceSession
@@ -767,6 +796,10 @@ function handleHostMessage(message: Record<string, unknown>): void {
       tab.focusViewportAfterLoad = false;
       tab.status = `${Number(message.count).toLocaleString()} items`;
       tab.requestId = undefined;
+      if (tab.pendingRecentLocation) {
+        rememberRecentLocation(tab.path);
+        tab.pendingRecentLocation = undefined;
+      }
       scheduleRender();
       break;
     }
@@ -1015,6 +1048,7 @@ function createTabModel(tabPath: string): ExplorerTab {
     selectedPaths: [],
     selectionAnchorPath: undefined,
     showHidden: false,
+    pendingRecentLocation: tabPath,
     sortKey: "name",
     sortDirection: "asc"
   };
@@ -1110,6 +1144,7 @@ function togglePaneLayout(): void {
   if (layoutMode === "panes") {
     endAddressEdit();
     hideContextMenu();
+    hideRecentLocationsMenu();
   }
   saveState();
   scheduleRender();
@@ -1146,6 +1181,7 @@ function navigateTab(tab: ExplorerTab, targetPath: string, pushHistory = true, r
   }
 
   tab.path = targetPath;
+  tab.pendingRecentLocation = targetPath;
   syncDirectoryWatchers();
   loadDirectory(tab, false);
   saveState();
@@ -1163,6 +1199,7 @@ function moveTabHistory(tab: ExplorerTab, offset: number): void {
   }
   tab.historyIndex = targetIndex;
   tab.path = tab.history[targetIndex];
+  tab.pendingRecentLocation = tab.path;
   syncDirectoryWatchers();
   loadDirectory(tab, false);
   saveState();
@@ -1517,9 +1554,73 @@ function renderToolbar(tab: ExplorerTab): void {
   elements.forward.disabled = tab.historyIndex >= tab.history.length - 1;
   elements.up.disabled = dirname(tab.path) === tab.path;
   elements.workspaceHome.disabled = !workspaceRoots.length;
+  elements.recentLocations.disabled = recentLocationOptions(tab).length === 0;
   elements.sidebarBack.disabled = tab.historyIndex <= 0;
   elements.sidebarUp.disabled = dirname(tab.path) === tab.path;
   elements.sidebarWorkspaceHome.disabled = !workspaceRoots.length;
+}
+
+function recentLocationOptions(tab: ExplorerTab): string[] {
+  return visibleRecentLocations(
+    recentLocations,
+    tab.path,
+    RECENT_LOCATIONS_DISPLAY_LIMIT,
+    normalizeForComparison
+  );
+}
+
+function rememberRecentLocation(location: string): void {
+  const nextLocations = addRecentLocation(
+    recentLocations,
+    location,
+    RECENT_LOCATIONS_SAVE_LIMIT,
+    normalizeForComparison
+  );
+  if (sameStringArray(recentLocations, nextLocations)) return;
+  recentLocations = nextLocations;
+  vscode.postMessage({ command: "saveRecentLocations", locations: recentLocations });
+}
+
+function sameStringArray(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function showRecentLocationsMenu(anchor: HTMLElement, tab: ExplorerTab): void {
+  const locations = recentLocationOptions(tab);
+  if (!locations.length) return;
+
+  hideContextMenu();
+  const buttons = locations.map((location) => {
+    const buttonElement = document.createElement("button");
+    buttonElement.type = "button";
+    buttonElement.setAttribute("role", "menuitem");
+    const name = document.createElement("span");
+    name.className = "recent-location-name";
+    name.textContent = basename(location) || location;
+    const pathElement = document.createElement("span");
+    pathElement.className = "recent-location-path";
+    pathElement.textContent = location;
+    buttonElement.append(name, pathElement);
+    buttonElement.addEventListener("click", () => {
+      hideRecentLocationsMenu();
+      focusTab(tab.id);
+      navigateTab(tab, location);
+    });
+    return buttonElement;
+  });
+
+  elements.recentLocationsMenu.replaceChildren(...buttons);
+  elements.recentLocationsMenu.classList.remove("hidden");
+  const anchorRect = anchor.getBoundingClientRect();
+  const menuRect = elements.recentLocationsMenu.getBoundingClientRect();
+  const left = Math.min(anchorRect.right - menuRect.width, window.innerWidth - menuRect.width - 6);
+  const top = Math.min(anchorRect.bottom + 3, window.innerHeight - menuRect.height - 6);
+  elements.recentLocationsMenu.style.left = `${Math.max(4, left)}px`;
+  elements.recentLocationsMenu.style.top = `${Math.max(4, top)}px`;
+}
+
+function hideRecentLocationsMenu(): void {
+  elements.recentLocationsMenu.classList.add("hidden");
 }
 
 function initializeTreeRoots(): void {
@@ -2058,6 +2159,8 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
 
   const pathRow = document.createElement("div");
   pathRow.className = "pane-path-row";
+  const addressContainer = document.createElement("div");
+  addressContainer.className = "address-container pane-address-container";
   const address = document.createElement("div");
   address.className = "address pane-address";
   address.dataset.role = "address";
@@ -2065,6 +2168,12 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
   addressInput.className = "address-input pane-address-input hidden";
   addressInput.dataset.role = "addressInput";
   addressInput.spellcheck = false;
+  const recentButton = document.createElement("button");
+  recentButton.className = "recent-locations-button";
+  recentButton.dataset.role = "recentLocations";
+  recentButton.title = "Recent locations";
+  recentButton.setAttribute("aria-label", "Recent locations");
+  recentButton.innerHTML = toolbarIcon("M4 6l4 4 4-4");
   address.addEventListener("click", (event) => {
     focusTab(tab.id);
     if (event.target === address) {
@@ -2087,7 +2196,13 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
   addressInput.addEventListener("blur", () => {
     endPaneAddressEdit(address, addressInput);
   });
-  pathRow.append(address, addressInput);
+  recentButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    focusTab(tab.id);
+    showRecentLocationsMenu(recentButton, tab);
+  });
+  addressContainer.append(address, addressInput, recentButton);
+  pathRow.append(addressContainer);
 
   const toolbar = document.createElement("div");
   toolbar.className = "pane-toolbar";
@@ -2183,6 +2298,10 @@ function updatePaneChrome(tab: ExplorerTab, pane: HTMLElement): void {
   const addressInput = pane.querySelector<HTMLInputElement>("[data-role='addressInput']");
   if (address && addressInput && addressInput.classList.contains("hidden")) {
     address.replaceChildren(...createAddressNodes(tab));
+  }
+  const recentButton = pane.querySelector<HTMLButtonElement>("[data-role='recentLocations']");
+  if (recentButton) {
+    recentButton.disabled = recentLocationOptions(tab).length === 0;
   }
   const searchInput = pane.querySelector<HTMLInputElement>("[data-role='search']");
   if (searchInput && document.activeElement !== searchInput && searchInput.value !== tab.searchQuery) {

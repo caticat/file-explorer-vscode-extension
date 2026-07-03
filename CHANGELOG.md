@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.2.5
+
+- Added a workspace-specific recent locations menu inside the address bar.
+- Shows up to five recent folders while keeping a small saved history of recent
+  directories for the current workspace.
+- Shares recent locations across tabs and tiled panes while navigation still
+  applies only to the active tab or pane.
+- Keeps the current folder out of the menu and moves repeated visits to the top
+  after successful navigation.
+- Added tests for recent-location normalization, de-duplication, display
+  filtering, and list limits.
+
 ## 0.2.4
 
 - Added **Copy Name** for selected files and folders.

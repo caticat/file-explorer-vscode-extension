@@ -70,6 +70,8 @@ editor area and sidebar.
 - Optional workspace-specific restoration of tab order, paths, and active tab.
 - One initial tab per root folder in multi-root workspaces without saved state.
 - Back, forward, up, refresh, breadcrumbs, and manual path entry (`Ctrl+L`).
+- Address-bar recent locations menu for quickly returning to recently visited
+  folders in the current workspace.
 - Detailed list and large-icon views.
 - Large-icon view expands selected filenames, including multi-selection, while
   keeping unselected items compact.
@@ -227,6 +229,7 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 更紧凑的侧边栏布局支持很窄的宽度，包括大图标视图一行一个图标。
 - 可按工作区恢复页签顺序、当前路径和活动页签。
 - 多根工作区在没有保存状态时，会为每个根目录创建一个初始页签。
+- 地址栏提供最近位置下拉菜单，可快速回到当前工作区最近访问过的目录。
 - 详细信息和大图标两种视图，并在所有页签和下次启动时继承视图设置。
 - 大图标视图中，选中的文件会展开显示完整文件名，多选时每个选中项都会展开。
 - editor 模式可开启左侧文件夹树用于导航，支持一键合并，并会保存显示和展开状态。

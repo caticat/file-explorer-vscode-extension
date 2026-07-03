@@ -36,7 +36,9 @@ const TREE_CHILD_PROBE_CONCURRENCY = 8;
 const METADATA_BATCH_LIMIT = 100;
 const METADATA_STAT_CONCURRENCY = 16;
 const WORKSPACE_SESSION_KEY = "workspaceSession.v1";
+const RECENT_LOCATIONS_KEY = "recentLocations.v1";
 const MAX_SAVED_TABS = 50;
+const MAX_RECENT_LOCATIONS = 15;
 
 interface WorkspaceSession {
   version: 1;
@@ -408,6 +410,9 @@ async function handleMessage(
       case "saveWorkspaceSession":
         await saveWorkspaceSession(context, message.session);
         break;
+      case "saveRecentLocations":
+        await saveRecentLocations(context, message.locations);
+        break;
       case "clearWorkspaceSession":
         if (shouldRestoreWorkspaceSession()) {
           await context.workspaceState.update(WORKSPACE_SESSION_KEY, undefined);
@@ -642,6 +647,7 @@ async function sendInitialState(
     restoreWorkspaceSession,
     workspaceSession,
     viewKind: panel.viewKind,
+    recentLocations: readRecentLocations(context),
     preferredTreeVisible: context.globalState.get<boolean>("preferredTreeVisible", false),
     preferredTreeExpandedPaths: context.globalState.get<string[]>("preferredTreeExpandedPaths", []),
     treeProbeChildFolders: shouldProbeTreeChildFolders()
@@ -855,6 +861,35 @@ async function saveWorkspaceSession(
     layoutMode: session.layoutMode === "panes" && tabs.length > 1 ? "panes" : "tabs"
   };
   await context.workspaceState.update(WORKSPACE_SESSION_KEY, saved);
+}
+
+function readRecentLocations(context: vscode.ExtensionContext): string[] {
+  const saved = context.workspaceState.get<unknown>(RECENT_LOCATIONS_KEY);
+  if (!Array.isArray(saved)) return [];
+  return normalizeRecentLocationList(saved);
+}
+
+async function saveRecentLocations(
+  context: vscode.ExtensionContext,
+  rawLocations: unknown
+): Promise<void> {
+  if (!Array.isArray(rawLocations)) return;
+  await context.workspaceState.update(RECENT_LOCATIONS_KEY, normalizeRecentLocationList(rawLocations));
+}
+
+function normalizeRecentLocationList(rawLocations: unknown[]): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const value of rawLocations) {
+    if (typeof value !== "string" || !value) continue;
+    const resolvedPath = path.resolve(value);
+    const key = process.platform === "win32" ? resolvedPath.toLocaleLowerCase() : resolvedPath;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(resolvedPath);
+    if (result.length >= MAX_RECENT_LOCATIONS) break;
+  }
+  return result;
 }
 
 async function streamDirectory(

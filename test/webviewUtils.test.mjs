@@ -52,12 +52,16 @@ import {
   updateSelectionState
 } from "../src/webviewSelection.ts";
 import {
+  addRecentLocation,
   initialActiveTabIndex,
   initialTabPaths,
   isWorkspaceSession,
   normalizeIconTheme,
   normalizeListColumns,
-  restoredLayoutMode
+  normalizeRecentLocations,
+  RECENT_LOCATIONS_DISPLAY_LIMIT,
+  restoredLayoutMode,
+  visibleRecentLocations
 } from "../src/webviewState.ts";
 import {
   canToggleTreeNodeState,
@@ -298,6 +302,37 @@ test("restoredLayoutMode only restores panes for editor views with multiple tabs
   assert.equal(restoredLayoutMode("editor", 1, session), "tabs");
   assert.equal(restoredLayoutMode("sidebar", 2, session), "tabs");
   assert.equal(restoredLayoutMode("editor", 2, undefined), "tabs");
+});
+
+test("recent locations normalize, dedupe, and cap saved entries", () => {
+  const normalize = (value) => value.toLowerCase();
+
+  assert.deepEqual(
+    normalizeRecentLocations(["/a", "", 42, "/b", "/A", "/c"], 3, normalize),
+    ["/a", "/b", "/c"]
+  );
+});
+
+test("addRecentLocation moves existing locations to the top", () => {
+  const normalize = (value) => value.toLowerCase();
+
+  assert.deepEqual(
+    addRecentLocation(["C:\\Work\\src", "C:\\Work\\test"], "C:\\WORK\\SRC", 3, normalize),
+    ["C:\\WORK\\SRC", "C:\\Work\\test"]
+  );
+  assert.deepEqual(
+    addRecentLocation(["/a", "/b", "/c"], "/d", 3),
+    ["/d", "/a", "/b"]
+  );
+});
+
+test("visibleRecentLocations hides current path and limits display count", () => {
+  const locations = ["/current", "/a", "/b", "/c", "/d", "/e", "/f"];
+
+  assert.deepEqual(
+    visibleRecentLocations(locations, "/current", RECENT_LOCATIONS_DISPLAY_LIMIT),
+    ["/a", "/b", "/c", "/d", "/e"]
+  );
 });
 
 test("treeNodeKey normalizes paths using the active platform", () => {

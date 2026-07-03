@@ -18,6 +18,9 @@ export interface IconThemePayload {
   folderNames: Record<string, string>;
 }
 
+export const RECENT_LOCATIONS_DISPLAY_LIMIT = 5;
+export const RECENT_LOCATIONS_SAVE_LIMIT = 15;
+
 export function isWorkspaceSession(value: unknown): value is WorkspaceSession {
   if (!value || typeof value !== "object") return false;
   const session = value as Record<string, unknown>;
@@ -86,6 +89,51 @@ export function restoredLayoutMode(
   return viewKind === "editor" && tabCount > 1 && workspaceSession?.layoutMode === "panes"
     ? "panes"
     : "tabs";
+}
+
+export function normalizeRecentLocations(
+  value: unknown,
+  maxCount = RECENT_LOCATIONS_SAVE_LIMIT,
+  normalize: (value: string) => string = (item) => item
+): string[] {
+  if (!Array.isArray(value)) return [];
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "string" || !item) continue;
+    const key = normalize(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+    if (result.length >= maxCount) break;
+  }
+  return result;
+}
+
+export function addRecentLocation(
+  locations: string[],
+  location: string,
+  maxCount = RECENT_LOCATIONS_SAVE_LIMIT,
+  normalize: (value: string) => string = (value) => value
+): string[] {
+  if (!location) return locations.slice(0, maxCount);
+  const key = normalize(location);
+  return [
+    location,
+    ...locations.filter((candidate) => normalize(candidate) !== key)
+  ].slice(0, maxCount);
+}
+
+export function visibleRecentLocations(
+  locations: string[],
+  currentLocation: string,
+  maxCount = RECENT_LOCATIONS_DISPLAY_LIMIT,
+  normalize: (value: string) => string = (value) => value
+): string[] {
+  const currentKey = normalize(currentLocation);
+  return locations
+    .filter((candidate) => normalize(candidate) !== currentKey)
+    .slice(0, maxCount);
 }
 
 function normalizeStringMap(value: unknown): Record<string, string> {
