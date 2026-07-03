@@ -16,7 +16,7 @@ need to memorize a separate command list.
 
 Use any of these methods:
 
-- Press `Ctrl+Alt+E` on Windows/Linux or `Cmd+Alt+E` on macOS to toggle the
+- Press `Ctrl+Alt+Q` on Windows/Linux or `Cmd+Alt+Q` on macOS to toggle the
   editor explorer open or closed.
 - Open the Command Palette with `Ctrl+Shift+P` or `F1`, then run
   **Simple File Explorer: Open**.
@@ -44,7 +44,7 @@ editor area and sidebar.
 ## Current features
 
 - Starts at the current VS Code workspace folder.
-- Toggles the editor explorer with `Ctrl+Alt+E` (`Cmd+Alt+E` on macOS).
+- Toggles the editor explorer with `Ctrl+Alt+Q` (`Cmd+Alt+Q` on macOS).
 - Opens in the editor area by default.
 - Optional Activity Bar sidebar mode.
 - Toolbar button for switching between editor and sidebar modes.
@@ -191,7 +191,7 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 
 可以通过以下任意方式打开：
 
-- Windows/Linux 使用 `Ctrl+Alt+E`，macOS 使用 `Cmd+Alt+E`，用于打开或关闭
+- Windows/Linux 使用 `Ctrl+Alt+Q`，macOS 使用 `Cmd+Alt+Q`，用于打开或关闭
   editor 模式的浏览器。
 - 按 `Ctrl+Shift+P` 或 `F1` 打开命令面板，然后执行
   **Simple File Explorer: Open**。

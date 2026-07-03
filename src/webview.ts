@@ -684,6 +684,10 @@ function handleHostMessage(message: Record<string, unknown>): void {
       }
       break;
     }
+    case "tabCommand": {
+      handleTabCommand(String(message.action), Number(message.index));
+      break;
+    }
     case "flushSession": {
       flushSavedSession();
       break;
@@ -1004,9 +1008,44 @@ function closeTab(tabId: string): void {
   activateCurrentTab();
 }
 
+function handleTabCommand(action: string, index: number): void {
+  switch (action) {
+    case "new":
+      createTab(getWorkspacePath());
+      break;
+    case "close":
+      closeTab(activeTabId);
+      break;
+    case "next":
+      activateTabByOffset(1);
+      break;
+    case "previous":
+      activateTabByOffset(-1);
+      break;
+    case "activate":
+      if (Number.isInteger(index)) {
+        activateTabAtIndex(index);
+      }
+      break;
+  }
+}
+
 function activateTab(tabId: string): void {
   activeTabId = tabId;
   activateCurrentTab();
+}
+
+function activateTabByOffset(offset: number): void {
+  if (tabs.length < 2) return;
+  const currentIndex = Math.max(0, tabs.findIndex((tab) => tab.id === activeTabId));
+  const nextIndex = (currentIndex + offset + tabs.length) % tabs.length;
+  activateTab(tabs[nextIndex].id);
+}
+
+function activateTabAtIndex(index: number): void {
+  const tab = tabs[index];
+  if (!tab) return;
+  activateTab(tab.id);
 }
 
 function focusTab(tabId: string): ExplorerTab {

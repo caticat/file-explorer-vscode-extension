@@ -40,6 +40,19 @@
     "onCommand:workspaceFileExplorer.open",
     "onCommand:workspaceFileExplorer.toggleViewLocation",
     "onCommand:workspaceFileExplorer.toggle",
+    "onCommand:workspaceFileExplorer.newTab",
+    "onCommand:workspaceFileExplorer.closeTab",
+    "onCommand:workspaceFileExplorer.nextTab",
+    "onCommand:workspaceFileExplorer.previousTab",
+    "onCommand:workspaceFileExplorer.activateTab1",
+    "onCommand:workspaceFileExplorer.activateTab2",
+    "onCommand:workspaceFileExplorer.activateTab3",
+    "onCommand:workspaceFileExplorer.activateTab4",
+    "onCommand:workspaceFileExplorer.activateTab5",
+    "onCommand:workspaceFileExplorer.activateTab6",
+    "onCommand:workspaceFileExplorer.activateTab7",
+    "onCommand:workspaceFileExplorer.activateTab8",
+    "onCommand:workspaceFileExplorer.activateTab9",
     "onCommand:workspaceFileExplorer.openFromExplorer",
     "onCommand:workspaceFileExplorer.revealInSimpleFileExplorer",
     "onView:workspaceFileExplorer.sidebar"
@@ -54,6 +67,58 @@
       {
         "command": "workspaceFileExplorer.toggle",
         "title": "Simple File Explorer: Toggle"
+      },
+      {
+        "command": "workspaceFileExplorer.newTab",
+        "title": "Simple File Explorer: New Tab"
+      },
+      {
+        "command": "workspaceFileExplorer.closeTab",
+        "title": "Simple File Explorer: Close Tab"
+      },
+      {
+        "command": "workspaceFileExplorer.nextTab",
+        "title": "Simple File Explorer: Next Tab"
+      },
+      {
+        "command": "workspaceFileExplorer.previousTab",
+        "title": "Simple File Explorer: Previous Tab"
+      },
+      {
+        "command": "workspaceFileExplorer.activateTab1",
+        "title": "Simple File Explorer: Activate Tab 1"
+      },
+      {
+        "command": "workspaceFileExplorer.activateTab2",
+        "title": "Simple File Explorer: Activate Tab 2"
+      },
+      {
+        "command": "workspaceFileExplorer.activateTab3",
+        "title": "Simple File Explorer: Activate Tab 3"
+      },
+      {
+        "command": "workspaceFileExplorer.activateTab4",
+        "title": "Simple File Explorer: Activate Tab 4"
+      },
+      {
+        "command": "workspaceFileExplorer.activateTab5",
+        "title": "Simple File Explorer: Activate Tab 5"
+      },
+      {
+        "command": "workspaceFileExplorer.activateTab6",
+        "title": "Simple File Explorer: Activate Tab 6"
+      },
+      {
+        "command": "workspaceFileExplorer.activateTab7",
+        "title": "Simple File Explorer: Activate Tab 7"
+      },
+      {
+        "command": "workspaceFileExplorer.activateTab8",
+        "title": "Simple File Explorer: Activate Tab 8"
+      },
+      {
+        "command": "workspaceFileExplorer.activateTab9",
+        "title": "Simple File Explorer: Activate Tab 9"
       },
       {
         "command": "workspaceFileExplorer.toggleViewLocation",
@@ -92,8 +157,8 @@
     "keybindings": [
       {
         "command": "workspaceFileExplorer.toggle",
-        "key": "ctrl+alt+e",
-        "mac": "cmd+alt+e"
+        "key": "ctrl+alt+q",
+        "mac": "cmd+alt+q"
       }
     ],
     "menus": {

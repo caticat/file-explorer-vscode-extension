@@ -150,6 +150,23 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("workspaceFileExplorer.open", openExplorer),
     vscode.commands.registerCommand("workspaceFileExplorer.toggle", toggleExplorer),
+    vscode.commands.registerCommand("workspaceFileExplorer.newTab", () =>
+      postTabCommand(openExplorer, "new")
+    ),
+    vscode.commands.registerCommand("workspaceFileExplorer.closeTab", () =>
+      postTabCommand(openExplorer, "close")
+    ),
+    vscode.commands.registerCommand("workspaceFileExplorer.nextTab", () =>
+      postTabCommand(openExplorer, "next")
+    ),
+    vscode.commands.registerCommand("workspaceFileExplorer.previousTab", () =>
+      postTabCommand(openExplorer, "previous")
+    ),
+    ...Array.from({ length: 9 }, (_, index) =>
+      vscode.commands.registerCommand(`workspaceFileExplorer.activateTab${index + 1}`, () =>
+        postTabCommand(openExplorer, "activate", index)
+      )
+    ),
     vscode.commands.registerCommand("workspaceFileExplorer.toggleViewLocation", toggleViewLocation),
     vscode.commands.registerCommand(
       "workspaceFileExplorer.openFromExplorer",
@@ -210,6 +227,24 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBarItem.command = "workspaceFileExplorer.toggle";
   updateStatusBarVisibility();
   context.subscriptions.push(statusBarItem);
+}
+
+async function postTabCommand(
+  openExplorer: () => Promise<void> | void,
+  action: "new" | "close" | "next" | "previous" | "activate",
+  index?: number
+): Promise<void> {
+  const webview =
+    activePanel?.visible && activePanelReady
+      ? activePanel.webview
+      : activeSidebarView?.visible && activeSidebarReady
+        ? activeSidebarView.webview
+        : undefined;
+  if (!webview) {
+    await openExplorer();
+    return;
+  }
+  await webview.postMessage({ command: "tabCommand", action, index });
 }
 
 function createExplorerPanel(context: vscode.ExtensionContext): void {
