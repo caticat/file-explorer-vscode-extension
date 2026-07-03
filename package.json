@@ -2,7 +2,7 @@
   "name": "workspace-file-explorer",
   "displayName": "Simple File Explorer",
   "description": "A tabbed, high-performance file explorer for Visual Studio Code.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "panjie039",
   "repository": {
     "type": "git",
@@ -122,16 +122,16 @@
       },
       {
         "command": "workspaceFileExplorer.toggleViewLocation",
-        "title": "Simple File Explorer: Toggle View Location"
+        "title": "Simple File Explorer: Move Between Editor and Sidebar"
       },
       {
         "command": "workspaceFileExplorer.openFromExplorer",
-        "title": "Open in Simple File Explorer",
+        "title": "Show in Simple File Explorer",
         "icon": "$(folder-opened)"
       },
       {
         "command": "workspaceFileExplorer.revealInSimpleFileExplorer",
-        "title": "Reveal in Simple File Explorer",
+        "title": "Show in Simple File Explorer",
         "icon": "$(folder-opened)"
       }
     ],

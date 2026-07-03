@@ -284,7 +284,6 @@ function createExplorerPanel(context: vscode.ExtensionContext): void {
     (event) => {
       if (!event.webviewPanel.visible) {
         disposeDirectoryWatchers();
-        activePanelReady = false;
       }
     },
     undefined,
@@ -337,7 +336,7 @@ function resolveSidebarView(
   view.onDidChangeVisibility(
     () => {
       if (!view.visible) {
-        activeSidebarReady = false;
+        disposeDirectoryWatchers();
       }
     },
     undefined,
@@ -448,7 +447,20 @@ async function handleMessage(
         await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(asString(message.path)));
         break;
       case "copyPath":
-        await copyPathToClipboard(panel, asString(message.path), message.relative === true);
+        await copyPathToClipboard(
+          panel,
+          asString(message.path),
+          message.relative === true,
+          typeof message.status === "string" ? message.status : undefined,
+          typeof message.fallbackStatus === "string" ? message.fallbackStatus : undefined
+        );
+        break;
+      case "copyText":
+        await copyTextToClipboard(
+          panel,
+          asString(message.text),
+          typeof message.status === "string" ? message.status : undefined
+        );
         break;
       case "openTerminalHere":
         await openTerminalHere(panel, asString(message.path));
@@ -570,7 +582,6 @@ function updateStatusBarVisibility(): void {
 function closeSidebarIfOpen(): void {
   if (!activeSidebarView) return;
   void vscode.commands.executeCommand("workbench.action.closeSidebar");
-  activeSidebarReady = false;
 }
 
 function flushActiveSessions(): void {
@@ -1527,14 +1538,30 @@ async function openFile(filePath: string): Promise<void> {
 async function copyPathToClipboard(
   panel: ExplorerWebviewHost,
   requestedPath: string,
-  relative: boolean
+  relative: boolean,
+  status?: string,
+  fallbackStatus?: string
 ): Promise<void> {
   const targetPath = normalizeInputPath(requestedPath);
   const text = relative ? relativeWorkspacePathOrAbsolute(targetPath) : targetPath;
+  const copiedRelative = relative && text !== targetPath;
   await vscode.env.clipboard.writeText(text);
   await panel.webview.postMessage({
     command: "pathCopied",
-    relative: relative && text !== targetPath
+    relative: copiedRelative,
+    status: copiedRelative || !relative ? status : fallbackStatus
+  });
+}
+
+async function copyTextToClipboard(
+  panel: ExplorerWebviewHost,
+  text: string,
+  status?: string
+): Promise<void> {
+  await vscode.env.clipboard.writeText(text);
+  await panel.webview.postMessage({
+    command: "textCopied",
+    status
   });
 }
 

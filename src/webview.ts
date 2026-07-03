@@ -342,8 +342,12 @@ app.innerHTML = `
     <button id="show-in-explorer" role="menuitem">Show in Simple File Explorer</button>
     <div id="item-menu-separator" class="menu-separator"></div>
     <button id="open-terminal-here" role="menuitem">Open Terminal Here</button>
+    <div id="location-menu-separator" class="menu-separator"></div>
+    <button id="copy-name" role="menuitem">Copy Name</button>
     <button id="copy-path" role="menuitem">Copy Path</button>
     <button id="copy-relative-path" role="menuitem">Copy Relative Path</button>
+    <button id="copy-directory-path" role="menuitem">Copy Folder Path</button>
+    <button id="copy-relative-directory-path" role="menuitem">Copy Relative Folder Path</button>
     <div id="path-menu-separator" class="menu-separator"></div>
     <button id="rename-item" role="menuitem">Rename</button>
     <button id="copy-items" role="menuitem">Copy</button>
@@ -407,8 +411,12 @@ const elements = {
   showInExplorer: button("show-in-explorer"),
   itemMenuSeparator: byId("item-menu-separator"),
   openTerminalHere: button("open-terminal-here"),
+  locationMenuSeparator: byId("location-menu-separator"),
+  copyName: button("copy-name"),
   copyPath: button("copy-path"),
   copyRelativePath: button("copy-relative-path"),
+  copyDirectoryPath: button("copy-directory-path"),
+  copyRelativeDirectoryPath: button("copy-relative-directory-path"),
   pathMenuSeparator: byId("path-menu-separator"),
   renameItem: button("rename-item"),
   copyItems: button("copy-items"),
@@ -504,8 +512,11 @@ elements.showInExplorer.addEventListener("click", () => {
   hideContextMenu();
 });
 elements.openTerminalHere.addEventListener("click", () => runContextMenuAction(openTerminalHere));
+elements.copyName.addEventListener("click", () => runContextMenuAction(copyName));
 elements.copyPath.addEventListener("click", () => runContextMenuAction(() => copyPath(false)));
 elements.copyRelativePath.addEventListener("click", () => runContextMenuAction(() => copyPath(true)));
+elements.copyDirectoryPath.addEventListener("click", () => runContextMenuAction(() => copyDirectoryPath(false)));
+elements.copyRelativeDirectoryPath.addEventListener("click", () => runContextMenuAction(() => copyDirectoryPath(true)));
 elements.renameItem.addEventListener("click", () => runContextMenuAction(renameSelection));
 elements.copyItems.addEventListener("click", () => runContextMenuAction(() => copySelection(false)));
 elements.cutItems.addEventListener("click", () => runContextMenuAction(() => copySelection(true)));
@@ -941,7 +952,11 @@ function handleHostMessage(message: Record<string, unknown>): void {
       break;
     }
     case "pathCopied": {
-      showTemporaryStatus(message.relative ? "Copied relative path" : "Copied path");
+      showTemporaryStatus(String(message.status || (message.relative ? "Copied relative path" : "Copied path")));
+      break;
+    }
+    case "textCopied": {
+      showTemporaryStatus(String(message.status || "Copied text"));
       break;
     }
     case "terminalOpened": {
@@ -2674,12 +2689,19 @@ function showContextMenu(
   elements.revealSystem.classList.toggle("hidden", !itemMenu);
   elements.showInExplorer.classList.toggle("hidden", !itemMenu || !allowShowInExplorer);
   elements.itemMenuSeparator.classList.toggle("hidden", !itemMenu);
+  elements.copyName.classList.toggle("hidden", !itemMenu);
+  elements.copyDirectoryPath.classList.toggle("hidden", !itemMenu || item?.isDirectory === true);
+  elements.copyRelativeDirectoryPath.classList.toggle("hidden", !itemMenu || item?.isDirectory === true);
   elements.renameItem.classList.toggle("hidden", !itemMenu);
   elements.copyItems.classList.toggle("hidden", !itemMenu);
   elements.cutItems.classList.toggle("hidden", !itemMenu);
   elements.deleteItems.classList.toggle("hidden", !itemMenu);
   elements.renameItem.disabled = !itemMenu || activeTab().selectedPaths.length !== 1;
   elements.pasteItems.disabled = clipboardPaths.length === 0;
+  const showListColumnOptions = activeTab().viewMode === "list";
+  elements.viewMenuSeparator.classList.toggle("hidden", !showListColumnOptions);
+  elements.toggleModifiedColumnMenu.classList.toggle("hidden", !showListColumnOptions);
+  elements.toggleSizeColumnMenu.classList.toggle("hidden", !showListColumnOptions);
   updateListColumnMenu();
   elements.contextMenu.classList.remove("hidden");
 
@@ -2721,11 +2743,32 @@ function contextMenuDirectoryPath(): string {
   return contextMenuItem.isDirectory ? contextMenuItem.path : dirname(contextMenuItem.path);
 }
 
+function copyName(): void {
+  if (!contextMenuItem) return;
+  vscode.postMessage({
+    command: "copyText",
+    text: contextMenuItem.name,
+    status: "Copied name"
+  });
+}
+
 function copyPath(relative: boolean): void {
   vscode.postMessage({
     command: "copyPath",
     path: contextMenuPath(),
-    relative
+    relative,
+    status: relative ? "Copied relative path" : "Copied path",
+    fallbackStatus: "Copied path"
+  });
+}
+
+function copyDirectoryPath(relative: boolean): void {
+  vscode.postMessage({
+    command: "copyPath",
+    path: contextMenuDirectoryPath(),
+    relative,
+    status: relative ? "Copied relative folder path" : "Copied folder path",
+    fallbackStatus: "Copied folder path"
   });
 }
 

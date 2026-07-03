@@ -24,8 +24,8 @@ Use any of these methods:
 - If `simpleFileExplorer.viewLocation` is set to `sidebar`, click the Simple
   File Explorer icon in the Activity Bar.
 - In the built-in VS Code Explorer, right-click a file or folder and select
-  **Open in Simple File Explorer**.
-- In an editor tab context menu, select **Reveal in Simple File Explorer** to
+  **Show in Simple File Explorer**.
+- In an editor tab context menu, select **Show in Simple File Explorer** to
   open the containing folder and select the active file.
 
 By default, Simple File Explorer opens in the editor area. Set
@@ -108,8 +108,8 @@ editor area and sidebar.
 - Right-click menu toggles for the modified-time and size columns.
 - Per-tab hidden dot-file visibility.
 - Context-menu reveal in the operating system file explorer.
-- Context-menu copy path and copy workspace-relative path actions that write
-  text paths to the VS Code clipboard.
+- Context-menu text-copy actions for item names, item paths, workspace-relative
+  item paths, file folder paths, and workspace-relative file folder paths.
 - Context-menu terminal launch from the selected file's containing folder, the
   selected folder, or the current empty-area folder.
 - Search-result navigation to the containing folder with the item selected.
@@ -204,8 +204,8 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 如果将 `simpleFileExplorer.viewLocation` 设置为 `sidebar`，可以点击 Activity
   Bar 中的 Simple File Explorer 图标。
 - 在 VS Code 自带 Explorer 中右键文件或目录，选择
-  **Open in Simple File Explorer**。
-- 在编辑器页签右键菜单中选择 **Reveal in Simple File Explorer**，可以打开当前
+  **Show in Simple File Explorer**。
+- 在编辑器页签右键菜单中选择 **Show in Simple File Explorer**，可以打开当前
   文件所在目录并选中该文件。
 
 快捷键会在 editor 模式下切换 Simple File Explorer 的打开和关闭。默认 editor
@@ -247,7 +247,8 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 支持方向键移动焦点、`Space` 选择、`Ctrl`/`Shift` 配合键盘进行多选和范围选择。
 - 支持右键菜单复制、剪切、粘贴、重命名、删除，以及空白区域粘贴；粘贴多个文件后会
   同时选中新生成的内容。
-- 右键菜单支持复制绝对路径、复制工作区相对路径，并写入 VS Code 文本剪贴板。
+- 右键菜单支持复制名称、路径、工作区相对路径、文件所在文件夹路径，以及文件所在
+  文件夹的工作区相对路径，并写入 VS Code 文本剪贴板。
 - 右键菜单支持在当前位置打开终端；文件会使用所在目录，文件夹会使用自身目录，
   空白区域会使用当前浏览目录。
 - 可从编辑器页签右键菜单中将当前文件定位到 Simple File Explorer。

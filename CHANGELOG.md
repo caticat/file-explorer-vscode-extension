@@ -1,5 +1,24 @@
 # Change Log
 
+## 0.2.4
+
+- Added **Copy Name** for selected files and folders.
+- Added file-only **Copy Folder Path** and **Copy Relative Folder Path** actions
+  for copying the containing folder as text.
+- Standardized the context-menu grouping so location actions, text-copy
+  actions, file operations, and view options are visually separated.
+- Standardized VS Code Explorer and editor tab context menu labels on
+  **Show in Simple File Explorer**.
+- Renamed the view-location command to **Simple File Explorer: Move Between
+  Editor and Sidebar** for clearer command-palette wording.
+- Fixed external **Show in Simple File Explorer** actions so returning to an
+  already-created hidden webview still navigates to and selects the requested
+  file or folder.
+- Hid modified-time and size column toggles from the context menu while large
+  icons are active because those columns are only shown in details view.
+- Improved path-copy status messages so workspace-relative actions report the
+  absolute-path fallback correctly when the target is outside the workspace.
+
 ## 0.2.3
 
 - Added context-menu actions to copy the selected item path or current folder
