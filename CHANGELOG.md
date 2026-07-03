@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.2.3
+
+- Added context-menu actions to copy the selected item path or current folder
+  path as text without changing the existing file copy/cut/paste behavior.
+- Added **Copy Relative Path**, which copies a workspace-relative path when the
+  target is inside a workspace root and falls back to the absolute path
+  otherwise.
+- Added **Open Terminal Here** from item and empty-area context menus. Files
+  open the terminal in their containing folder, folders open directly, and
+  empty-area actions use the current explorer folder.
+- Added footer status feedback after path-copy and terminal-open actions.
+
 ## 0.2.2
 
 - Changed the default keyboard shortcut to toggle the editor explorer instead

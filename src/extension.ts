@@ -447,6 +447,12 @@ async function handleMessage(
       case "revealInSystem":
         await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(asString(message.path)));
         break;
+      case "copyPath":
+        await copyPathToClipboard(panel, asString(message.path), message.relative === true);
+        break;
+      case "openTerminalHere":
+        await openTerminalHere(panel, asString(message.path));
+        break;
       case "watchDirectories":
         updateDirectoryWatchers(panel, asStringArray(message.paths));
         break;
@@ -1516,6 +1522,48 @@ async function openFile(filePath: string): Promise<void> {
     preview: false,
     viewColumn: vscode.ViewColumn.Active
   });
+}
+
+async function copyPathToClipboard(
+  panel: ExplorerWebviewHost,
+  requestedPath: string,
+  relative: boolean
+): Promise<void> {
+  const targetPath = normalizeInputPath(requestedPath);
+  const text = relative ? relativeWorkspacePathOrAbsolute(targetPath) : targetPath;
+  await vscode.env.clipboard.writeText(text);
+  await panel.webview.postMessage({
+    command: "pathCopied",
+    relative: relative && text !== targetPath
+  });
+}
+
+function relativeWorkspacePathOrAbsolute(targetPath: string): string {
+  const resolvedPath = path.resolve(targetPath);
+  const workspaceRoots = (vscode.workspace.workspaceFolders ?? [])
+    .map((folder) => path.resolve(folder.uri.fsPath))
+    .filter((root) => isPathInsideOrEqual(resolvedPath, root))
+    .sort((left, right) => right.length - left.length);
+  const root = workspaceRoots[0];
+  if (!root) return resolvedPath;
+  return path.relative(root, resolvedPath) || ".";
+}
+
+async function openTerminalHere(
+  panel: ExplorerWebviewHost,
+  requestedPath: string
+): Promise<void> {
+  const directoryPath = normalizeInputPath(requestedPath);
+  const stat = await fs.promises.stat(directoryPath);
+  if (!stat.isDirectory()) {
+    throw new Error("Terminal path must be a directory.");
+  }
+  const terminal = vscode.window.createTerminal({
+    name: `Simple File Explorer: ${path.basename(directoryPath) || directoryPath}`,
+    cwd: directoryPath
+  });
+  terminal.show();
+  await panel.webview.postMessage({ command: "terminalOpened" });
 }
 
 async function openCreatedFile(filePath: string): Promise<void> {

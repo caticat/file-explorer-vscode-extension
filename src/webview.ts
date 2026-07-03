@@ -341,6 +341,10 @@ app.innerHTML = `
     <button id="reveal-system" role="menuitem">Reveal in System File Manager</button>
     <button id="show-in-explorer" role="menuitem">Show in Simple File Explorer</button>
     <div id="item-menu-separator" class="menu-separator"></div>
+    <button id="open-terminal-here" role="menuitem">Open Terminal Here</button>
+    <button id="copy-path" role="menuitem">Copy Path</button>
+    <button id="copy-relative-path" role="menuitem">Copy Relative Path</button>
+    <div id="path-menu-separator" class="menu-separator"></div>
     <button id="rename-item" role="menuitem">Rename</button>
     <button id="copy-items" role="menuitem">Copy</button>
     <button id="cut-items" role="menuitem">Cut</button>
@@ -402,6 +406,10 @@ const elements = {
   revealSystem: button("reveal-system"),
   showInExplorer: button("show-in-explorer"),
   itemMenuSeparator: byId("item-menu-separator"),
+  openTerminalHere: button("open-terminal-here"),
+  copyPath: button("copy-path"),
+  copyRelativePath: button("copy-relative-path"),
+  pathMenuSeparator: byId("path-menu-separator"),
   renameItem: button("rename-item"),
   copyItems: button("copy-items"),
   cutItems: button("cut-items"),
@@ -495,6 +503,9 @@ elements.showInExplorer.addEventListener("click", () => {
   }
   hideContextMenu();
 });
+elements.openTerminalHere.addEventListener("click", () => runContextMenuAction(openTerminalHere));
+elements.copyPath.addEventListener("click", () => runContextMenuAction(() => copyPath(false)));
+elements.copyRelativePath.addEventListener("click", () => runContextMenuAction(() => copyPath(true)));
 elements.renameItem.addEventListener("click", () => runContextMenuAction(renameSelection));
 elements.copyItems.addEventListener("click", () => runContextMenuAction(() => copySelection(false)));
 elements.cutItems.addEventListener("click", () => runContextMenuAction(() => copySelection(true)));
@@ -927,6 +938,14 @@ function handleHostMessage(message: Record<string, unknown>): void {
         showTemporaryStatus(String(message.message || "Directory does not exist."));
         elements.addressInput.select();
       }
+      break;
+    }
+    case "pathCopied": {
+      showTemporaryStatus(message.relative ? "Copied relative path" : "Copied path");
+      break;
+    }
+    case "terminalOpened": {
+      showTemporaryStatus("Opened terminal");
       break;
     }
     case "operationError": {
@@ -2691,6 +2710,30 @@ function runContextMenuAction(action: () => void): void {
 function showItemInExplorer(item: DirectoryItem): void {
   const parentPath = dirname(item.path);
   navigate(parentPath, true, item.path);
+}
+
+function contextMenuPath(): string {
+  return contextMenuItem?.path ?? activeTab().path;
+}
+
+function contextMenuDirectoryPath(): string {
+  if (!contextMenuItem) return activeTab().path;
+  return contextMenuItem.isDirectory ? contextMenuItem.path : dirname(contextMenuItem.path);
+}
+
+function copyPath(relative: boolean): void {
+  vscode.postMessage({
+    command: "copyPath",
+    path: contextMenuPath(),
+    relative
+  });
+}
+
+function openTerminalHere(): void {
+  vscode.postMessage({
+    command: "openTerminalHere",
+    path: contextMenuDirectoryPath()
+  });
 }
 
 function selectByTypeAhead(character: string): void {

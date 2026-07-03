@@ -108,6 +108,10 @@ editor area and sidebar.
 - Right-click menu toggles for the modified-time and size columns.
 - Per-tab hidden dot-file visibility.
 - Context-menu reveal in the operating system file explorer.
+- Context-menu copy path and copy workspace-relative path actions that write
+  text paths to the VS Code clipboard.
+- Context-menu terminal launch from the selected file's containing folder, the
+  selected folder, or the current empty-area folder.
 - Search-result navigation to the containing folder with the item selected.
 - Explorer shortcuts: `/`, `Backspace`/`Alt+Up`, `Alt+Left`, `Alt+Right`, `F5`,
   `Ctrl+L`, `Enter`, `Space`, `F2`, `Delete`, `Shift+Delete`, `Ctrl+A`, arrow
@@ -243,6 +247,9 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 支持方向键移动焦点、`Space` 选择、`Ctrl`/`Shift` 配合键盘进行多选和范围选择。
 - 支持右键菜单复制、剪切、粘贴、重命名、删除，以及空白区域粘贴；粘贴多个文件后会
   同时选中新生成的内容。
+- 右键菜单支持复制绝对路径、复制工作区相对路径，并写入 VS Code 文本剪贴板。
+- 右键菜单支持在当前位置打开终端；文件会使用所在目录，文件夹会使用自身目录，
+  空白区域会使用当前浏览目录。
 - 可从编辑器页签右键菜单中将当前文件定位到 Simple File Explorer。
 - 可通过工具栏按钮在 editor 和 sidebar 显示模式之间快速切换。
 - 按名称/修改时间/大小排序、隐藏点文件切换。
