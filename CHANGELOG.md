@@ -1,5 +1,13 @@
 # Change Log
 
+## Unreleased
+
+- Refined context-menu labels and grouping so empty-area path actions refer to
+  the current folder, and recursive-search result menus no longer show the
+  ambiguous paste action.
+- Added **Refresh** to the empty-area context menu and made context-menu
+  separators depend on visible menu groups.
+
 ## 0.2.7
 
 - Added command-only actions for focusing search/address input, toggling hidden

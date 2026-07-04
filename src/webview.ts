@@ -361,6 +361,7 @@ app.innerHTML = `
   <div id="context-menu" class="context-menu hidden" role="menu">
     <button id="new-file-menu" role="menuitem">New File</button>
     <button id="new-folder-menu" role="menuitem">New Folder</button>
+    <button id="refresh-menu" role="menuitem">Refresh</button>
     <div id="create-menu-separator" class="menu-separator"></div>
     <button id="reveal-system" role="menuitem">Reveal in System File Manager</button>
     <button id="show-in-explorer" role="menuitem">Show in Simple File Explorer</button>
@@ -437,6 +438,7 @@ const elements = {
   recentLocationsMenu: byId("recent-locations-menu"),
   newFileMenu: button("new-file-menu"),
   newFolderMenu: button("new-folder-menu"),
+  refreshMenu: button("refresh-menu"),
   createMenuSeparator: byId("create-menu-separator"),
   revealSystem: button("reveal-system"),
   showInExplorer: button("show-in-explorer"),
@@ -552,6 +554,7 @@ elements.showInExplorer.addEventListener("click", () => {
 });
 elements.newFileMenu.addEventListener("click", () => runContextMenuAction(() => createItemInContext(false)));
 elements.newFolderMenu.addEventListener("click", () => runContextMenuAction(() => createItemInContext(true)));
+elements.refreshMenu.addEventListener("click", () => runContextMenuAction(refreshContextDirectory));
 elements.openTerminalHere.addEventListener("click", () => runContextMenuAction(openTerminalHere));
 elements.copyName.addEventListener("click", () => runContextMenuAction(copyName));
 elements.copyPath.addEventListener("click", () => runContextMenuAction(() => copyPath(false)));
@@ -2991,12 +2994,12 @@ function showContextMenu(
 ): void {
   contextMenuItem = item;
   const itemMenu = Boolean(item);
+  const searchResultItem = itemMenu && allowShowInExplorer;
   elements.newFileMenu.classList.toggle("hidden", itemMenu);
   elements.newFolderMenu.classList.toggle("hidden", itemMenu);
-  elements.createMenuSeparator.classList.toggle("hidden", itemMenu);
+  elements.refreshMenu.classList.toggle("hidden", itemMenu);
   elements.revealSystem.classList.toggle("hidden", !itemMenu);
   elements.showInExplorer.classList.toggle("hidden", !itemMenu || !allowShowInExplorer);
-  elements.itemMenuSeparator.classList.toggle("hidden", !itemMenu);
   elements.copyName.classList.toggle("hidden", !itemMenu);
   elements.copyDirectoryPath.classList.toggle("hidden", !itemMenu || item?.isDirectory === true);
   elements.copyRelativeDirectoryPath.classList.toggle("hidden", !itemMenu || item?.isDirectory === true);
@@ -3004,13 +3007,16 @@ function showContextMenu(
   elements.copyItems.classList.toggle("hidden", !itemMenu);
   elements.cutItems.classList.toggle("hidden", !itemMenu);
   elements.deleteItems.classList.toggle("hidden", !itemMenu);
+  elements.pasteItems.classList.toggle("hidden", searchResultItem);
   elements.renameItem.disabled = !itemMenu || activeTab().selectedPaths.length !== 1;
   elements.pasteItems.disabled = clipboardPaths.length === 0;
+  elements.copyPath.textContent = itemMenu ? "Copy Path" : "Copy Current Folder Path";
+  elements.copyRelativePath.textContent = itemMenu ? "Copy Relative Path" : "Copy Current Folder Relative Path";
   const showListColumnOptions = activeTab().viewMode === "list";
-  elements.viewMenuSeparator.classList.toggle("hidden", !showListColumnOptions);
   elements.toggleModifiedColumnMenu.classList.toggle("hidden", !showListColumnOptions);
   elements.toggleSizeColumnMenu.classList.toggle("hidden", !showListColumnOptions);
   updateListColumnMenu();
+  updateContextMenuSeparators();
   elements.contextMenu.classList.remove("hidden");
 
   const rect = elements.contextMenu.getBoundingClientRect();
@@ -3031,6 +3037,74 @@ function showViewportContextMenu(event: MouseEvent): void {
 function hideContextMenu(): void {
   contextMenuItem = undefined;
   elements.contextMenu.classList.add("hidden");
+}
+
+function updateContextMenuSeparators(): void {
+  updateSeparatorVisibility(elements.createMenuSeparator, [
+    elements.newFileMenu,
+    elements.newFolderMenu,
+    elements.refreshMenu
+  ], [
+    elements.revealSystem,
+    elements.showInExplorer,
+    elements.openTerminalHere,
+    elements.copyName,
+    elements.copyPath,
+    elements.copyRelativePath
+  ]);
+  updateSeparatorVisibility(elements.itemMenuSeparator, [
+    elements.revealSystem,
+    elements.showInExplorer
+  ], [
+    elements.openTerminalHere,
+    elements.copyName,
+    elements.copyPath,
+    elements.copyRelativePath
+  ]);
+  updateSeparatorVisibility(elements.locationMenuSeparator, [
+    elements.openTerminalHere
+  ], [
+    elements.copyName,
+    elements.copyPath,
+    elements.copyRelativePath,
+    elements.copyDirectoryPath,
+    elements.copyRelativeDirectoryPath
+  ]);
+  updateSeparatorVisibility(elements.pathMenuSeparator, [
+    elements.copyName,
+    elements.copyPath,
+    elements.copyRelativePath,
+    elements.copyDirectoryPath,
+    elements.copyRelativeDirectoryPath
+  ], [
+    elements.renameItem,
+    elements.copyItems,
+    elements.cutItems,
+    elements.pasteItems,
+    elements.deleteItems
+  ]);
+  updateSeparatorVisibility(elements.viewMenuSeparator, [
+    elements.renameItem,
+    elements.copyItems,
+    elements.cutItems,
+    elements.pasteItems,
+    elements.deleteItems
+  ], [
+    elements.toggleModifiedColumnMenu,
+    elements.toggleSizeColumnMenu
+  ]);
+}
+
+function updateSeparatorVisibility(
+  separator: HTMLElement,
+  before: HTMLElement[],
+  after: HTMLElement[]
+): void {
+  separator.classList.toggle("hidden", !hasVisibleMenuItem(before) || !hasVisibleMenuItem(after));
+}
+
+function hasVisibleMenuItem(items: HTMLElement[]): boolean {
+  return items.some((item) => !item.classList.contains("hidden"));
 }
 
 function focusTabForEventTarget(target: EventTarget | null): void {
@@ -3065,6 +3139,10 @@ function createItemInContext(isDirectory: boolean): void {
     command: isDirectory ? "createFolder" : "createFile",
     path: contextMenuDirectoryPath()
   });
+}
+
+function refreshContextDirectory(): void {
+  loadDirectory(activeTab(), false);
 }
 
 function copyName(): void {
