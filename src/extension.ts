@@ -37,8 +37,10 @@ const METADATA_BATCH_LIMIT = 100;
 const METADATA_STAT_CONCURRENCY = 16;
 const WORKSPACE_SESSION_KEY = "workspaceSession.v1";
 const RECENT_LOCATIONS_KEY = "recentLocations.v1";
+const FAVORITE_LOCATIONS_KEY = "favoriteLocations.v1";
 const MAX_SAVED_TABS = 50;
 const MAX_RECENT_LOCATIONS = 15;
+const MAX_FAVORITE_LOCATIONS = 10;
 
 interface WorkspaceSession {
   version: 1;
@@ -413,6 +415,9 @@ async function handleMessage(
       case "saveRecentLocations":
         await saveRecentLocations(context, message.locations);
         break;
+      case "saveFavoriteLocations":
+        await saveFavoriteLocations(context, message.locations);
+        break;
       case "clearWorkspaceSession":
         if (shouldRestoreWorkspaceSession()) {
           await context.workspaceState.update(WORKSPACE_SESSION_KEY, undefined);
@@ -648,6 +653,7 @@ async function sendInitialState(
     workspaceSession,
     viewKind: panel.viewKind,
     recentLocations: readRecentLocations(context),
+    favoriteLocations: readFavoriteLocations(context),
     preferredTreeVisible: context.globalState.get<boolean>("preferredTreeVisible", false),
     preferredTreeExpandedPaths: context.globalState.get<string[]>("preferredTreeExpandedPaths", []),
     treeProbeChildFolders: shouldProbeTreeChildFolders()
@@ -866,7 +872,7 @@ async function saveWorkspaceSession(
 function readRecentLocations(context: vscode.ExtensionContext): string[] {
   const saved = context.workspaceState.get<unknown>(RECENT_LOCATIONS_KEY);
   if (!Array.isArray(saved)) return [];
-  return normalizeRecentLocationList(saved);
+  return normalizeLocationList(saved, MAX_RECENT_LOCATIONS);
 }
 
 async function saveRecentLocations(
@@ -874,10 +880,24 @@ async function saveRecentLocations(
   rawLocations: unknown
 ): Promise<void> {
   if (!Array.isArray(rawLocations)) return;
-  await context.workspaceState.update(RECENT_LOCATIONS_KEY, normalizeRecentLocationList(rawLocations));
+  await context.workspaceState.update(RECENT_LOCATIONS_KEY, normalizeLocationList(rawLocations, MAX_RECENT_LOCATIONS));
 }
 
-function normalizeRecentLocationList(rawLocations: unknown[]): string[] {
+function readFavoriteLocations(context: vscode.ExtensionContext): string[] {
+  const saved = context.workspaceState.get<unknown>(FAVORITE_LOCATIONS_KEY);
+  if (!Array.isArray(saved)) return [];
+  return normalizeLocationList(saved, MAX_FAVORITE_LOCATIONS);
+}
+
+async function saveFavoriteLocations(
+  context: vscode.ExtensionContext,
+  rawLocations: unknown
+): Promise<void> {
+  if (!Array.isArray(rawLocations)) return;
+  await context.workspaceState.update(FAVORITE_LOCATIONS_KEY, normalizeLocationList(rawLocations, MAX_FAVORITE_LOCATIONS));
+}
+
+function normalizeLocationList(rawLocations: unknown[], maxCount: number): string[] {
   const result: string[] = [];
   const seen = new Set<string>();
   for (const value of rawLocations) {
@@ -887,7 +907,7 @@ function normalizeRecentLocationList(rawLocations: unknown[]): string[] {
     if (seen.has(key)) continue;
     seen.add(key);
     result.push(resolvedPath);
-    if (result.length >= MAX_RECENT_LOCATIONS) break;
+    if (result.length >= maxCount) break;
   }
   return result;
 }

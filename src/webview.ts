@@ -29,15 +29,20 @@ import {
   type IconThemePayload,
   type ListColumnPreferences,
   type WorkspaceSession,
+  FAVORITE_LOCATIONS_SAVE_LIMIT,
   RECENT_LOCATIONS_DISPLAY_LIMIT,
   RECENT_LOCATIONS_SAVE_LIMIT,
+  addFavoriteLocation,
   addRecentLocation,
   initialActiveTabIndex,
   initialTabPaths,
+  isFavoriteLocation,
   isWorkspaceSession,
+  normalizeFavoriteLocations,
   normalizeIconTheme,
   normalizeRecentLocations,
   normalizeListColumns,
+  removeFavoriteLocation,
   restoredLayoutMode,
   visibleRecentLocations
 } from "./webviewState";
@@ -140,6 +145,7 @@ let restoreWorkspaceSession = true;
 let tabs: ExplorerTab[] = [];
 let activeTabId = "";
 let recentLocations: string[] = [];
+let favoriteLocations: string[] = [];
 let renderScheduled = false;
 let sessionSaveTimer = 0;
 let suppressSessionSave = false;
@@ -254,7 +260,10 @@ app.innerHTML = `
       <div class="address-container">
         <div id="address" class="address"></div>
         <input id="address-input" class="address-input hidden" spellcheck="false">
-        <button id="recent-locations" class="recent-locations-button" title="Recent locations" aria-label="Recent locations">${toolbarIcon(
+        <button id="favorite-location" class="address-action-button favorite-location-button" title="Add to favorites" aria-label="Add to favorites" aria-pressed="false">${toolbarIcon(
+          "M8 1.75 9.9 5.65 14.2 6.25 11.1 9.25 11.85 13.5 8 11.5 4.15 13.5 4.9 9.25 1.8 6.25 6.1 5.65 8 1.75Z"
+        )}</button>
+        <button id="recent-locations" class="address-action-button recent-locations-button" title="Recent and favorite locations" aria-label="Recent and favorite locations">${toolbarIcon(
           "M4 6l4 4 4-4"
         )}</button>
       </div>
@@ -394,6 +403,7 @@ const elements = {
   newFolder: button("new-folder"),
   address: byId("address"),
   addressInput: input("address-input"),
+  favoriteLocation: button("favorite-location"),
   recentLocations: button("recent-locations"),
   listView: button("list-view"),
   gridView: button("grid-view"),
@@ -488,6 +498,10 @@ elements.address.addEventListener("click", (event) => {
   }
 });
 elements.address.addEventListener("dblclick", beginAddressEdit);
+elements.favoriteLocation.addEventListener("click", (event) => {
+  event.stopPropagation();
+  toggleFavoriteLocation(activeTab());
+});
 elements.recentLocations.addEventListener("click", (event) => {
   event.stopPropagation();
   showRecentLocationsMenu(elements.recentLocations, activeTab());
@@ -691,6 +705,11 @@ function handleHostMessage(message: Record<string, unknown>): void {
       recentLocations = normalizeRecentLocations(
         message.recentLocations,
         RECENT_LOCATIONS_SAVE_LIMIT,
+        normalizeForComparison
+      );
+      favoriteLocations = normalizeFavoriteLocations(
+        message.favoriteLocations,
+        FAVORITE_LOCATIONS_SAVE_LIMIT,
         normalizeForComparison
       );
       restoreWorkspaceSession = message.restoreWorkspaceSession !== false;
@@ -1554,7 +1573,8 @@ function renderToolbar(tab: ExplorerTab): void {
   elements.forward.disabled = tab.historyIndex >= tab.history.length - 1;
   elements.up.disabled = dirname(tab.path) === tab.path;
   elements.workspaceHome.disabled = !workspaceRoots.length;
-  elements.recentLocations.disabled = recentLocationOptions(tab).length === 0;
+  updateFavoriteButton(elements.favoriteLocation, tab);
+  elements.recentLocations.disabled = recentLocationOptions(tab).length === 0 && favoriteLocationOptions().length === 0;
   elements.sidebarBack.disabled = tab.historyIndex <= 0;
   elements.sidebarUp.disabled = dirname(tab.path) === tab.path;
   elements.sidebarWorkspaceHome.disabled = !workspaceRoots.length;
@@ -1566,7 +1586,7 @@ function recentLocationOptions(tab: ExplorerTab): string[] {
     tab.path,
     RECENT_LOCATIONS_DISPLAY_LIMIT,
     normalizeForComparison
-  );
+  ).filter((location) => !isFavoriteLocation(favoriteLocations, location, normalizeForComparison));
 }
 
 function rememberRecentLocation(location: string): void {
@@ -1581,35 +1601,75 @@ function rememberRecentLocation(location: string): void {
   vscode.postMessage({ command: "saveRecentLocations", locations: recentLocations });
 }
 
+function favoriteLocationOptions(): string[] {
+  return favoriteLocations;
+}
+
+function toggleFavoriteLocation(tab: ExplorerTab): void {
+  const favorited = isFavoriteLocation(favoriteLocations, tab.path, normalizeForComparison);
+  favoriteLocations = favorited
+    ? removeFavoriteLocation(favoriteLocations, tab.path, normalizeForComparison)
+    : addFavoriteLocation(
+        favoriteLocations,
+        tab.path,
+        FAVORITE_LOCATIONS_SAVE_LIMIT,
+        normalizeForComparison
+      );
+  saveFavoriteLocations();
+  showTemporaryStatus(favorited ? "Removed favorite location" : "Added favorite location");
+  scheduleRender();
+}
+
+function removeFavoriteFromMenu(location: string, tab: ExplorerTab, anchor?: HTMLElement): void {
+  favoriteLocations = removeFavoriteLocation(favoriteLocations, location, normalizeForComparison);
+  saveFavoriteLocations();
+  showTemporaryStatus("Removed favorite location");
+  if (anchor && (recentLocationOptions(tab).length || favoriteLocationOptions().length)) {
+    showRecentLocationsMenu(anchor, tab);
+  } else {
+    hideRecentLocationsMenu();
+  }
+  scheduleRender();
+}
+
+function saveFavoriteLocations(): void {
+  vscode.postMessage({ command: "saveFavoriteLocations", locations: favoriteLocations });
+}
+
+function updateFavoriteButton(buttonElement: HTMLButtonElement, tab: ExplorerTab): void {
+  const favorited = isFavoriteLocation(favoriteLocations, tab.path, normalizeForComparison);
+  buttonElement.classList.toggle("active", favorited);
+  buttonElement.title = favorited ? "Remove from favorites" : "Add to favorites";
+  buttonElement.setAttribute("aria-label", buttonElement.title);
+  buttonElement.setAttribute("aria-pressed", String(favorited));
+}
+
 function sameStringArray(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function showRecentLocationsMenu(anchor: HTMLElement, tab: ExplorerTab): void {
-  const locations = recentLocationOptions(tab);
-  if (!locations.length) return;
+  const recent = recentLocationOptions(tab);
+  const favorites = favoriteLocationOptions();
+  if (!recent.length && !favorites.length) return;
 
   hideContextMenu();
-  const buttons = locations.map((location) => {
-    const buttonElement = document.createElement("button");
-    buttonElement.type = "button";
-    buttonElement.setAttribute("role", "menuitem");
-    const name = document.createElement("span");
-    name.className = "recent-location-name";
-    name.textContent = basename(location) || location;
-    const pathElement = document.createElement("span");
-    pathElement.className = "recent-location-path";
-    pathElement.textContent = location;
-    buttonElement.append(name, pathElement);
-    buttonElement.addEventListener("click", () => {
-      hideRecentLocationsMenu();
-      focusTab(tab.id);
-      navigateTab(tab, location);
-    });
-    return buttonElement;
-  });
+  const nodes: HTMLElement[] = [];
+  if (recent.length) {
+    nodes.push(createLocationsMenuHeader("Recent"));
+    nodes.push(...recent.map((location) => createLocationMenuItem(location, tab, false, anchor)));
+  }
+  if (recent.length && favorites.length) {
+    const separator = document.createElement("div");
+    separator.className = "locations-menu-separator";
+    nodes.push(separator);
+  }
+  if (favorites.length) {
+    nodes.push(createLocationsMenuHeader("Favorites"));
+    nodes.push(...favorites.map((location) => createLocationMenuItem(location, tab, true, anchor)));
+  }
 
-  elements.recentLocationsMenu.replaceChildren(...buttons);
+  elements.recentLocationsMenu.replaceChildren(...nodes);
   elements.recentLocationsMenu.classList.remove("hidden");
   const anchorRect = anchor.getBoundingClientRect();
   const menuRect = elements.recentLocationsMenu.getBoundingClientRect();
@@ -1617,6 +1677,57 @@ function showRecentLocationsMenu(anchor: HTMLElement, tab: ExplorerTab): void {
   const top = Math.min(anchorRect.bottom + 3, window.innerHeight - menuRect.height - 6);
   elements.recentLocationsMenu.style.left = `${Math.max(4, left)}px`;
   elements.recentLocationsMenu.style.top = `${Math.max(4, top)}px`;
+}
+
+function createLocationsMenuHeader(label: string): HTMLElement {
+  const header = document.createElement("div");
+  header.className = "locations-menu-header";
+  header.textContent = label;
+  return header;
+}
+
+function createLocationMenuItem(
+  location: string,
+  tab: ExplorerTab,
+  favorite = false,
+  anchor?: HTMLElement
+): HTMLElement {
+  const row = document.createElement("div");
+  row.className = `location-menu-row ${favorite ? "favorite" : ""}`;
+  const buttonElement = document.createElement("button");
+  buttonElement.className = "location-menu-target";
+  buttonElement.type = "button";
+  buttonElement.setAttribute("role", "menuitem");
+  const name = document.createElement("span");
+  name.className = "recent-location-name";
+  name.textContent = basename(location) || location;
+  const pathElement = document.createElement("span");
+  pathElement.className = "recent-location-path";
+  pathElement.textContent = location;
+  buttonElement.append(name, pathElement);
+  buttonElement.addEventListener("click", () => {
+    hideRecentLocationsMenu();
+    focusTab(tab.id);
+    navigateTab(tab, location);
+  });
+  row.append(buttonElement);
+
+  if (favorite) {
+    const favoriteButton = document.createElement("button");
+    favoriteButton.className = "location-menu-favorite";
+    favoriteButton.type = "button";
+    favoriteButton.title = "Remove from favorites";
+    favoriteButton.setAttribute("aria-label", "Remove from favorites");
+    favoriteButton.innerHTML = toolbarIcon(
+      "M8 1.75 9.9 5.65 14.2 6.25 11.1 9.25 11.85 13.5 8 11.5 4.15 13.5 4.9 9.25 1.8 6.25 6.1 5.65 8 1.75Z"
+    );
+    favoriteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      removeFavoriteFromMenu(location, tab, anchor);
+    });
+    row.append(favoriteButton);
+  }
+  return row;
 }
 
 function hideRecentLocationsMenu(): void {
@@ -2168,11 +2279,20 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
   addressInput.className = "address-input pane-address-input hidden";
   addressInput.dataset.role = "addressInput";
   addressInput.spellcheck = false;
+  const favoriteButton = document.createElement("button");
+  favoriteButton.className = "address-action-button favorite-location-button";
+  favoriteButton.dataset.role = "favoriteLocation";
+  favoriteButton.title = "Add to favorites";
+  favoriteButton.setAttribute("aria-label", "Add to favorites");
+  favoriteButton.setAttribute("aria-pressed", "false");
+  favoriteButton.innerHTML = toolbarIcon(
+    "M8 1.75 9.9 5.65 14.2 6.25 11.1 9.25 11.85 13.5 8 11.5 4.15 13.5 4.9 9.25 1.8 6.25 6.1 5.65 8 1.75Z"
+  );
   const recentButton = document.createElement("button");
-  recentButton.className = "recent-locations-button";
+  recentButton.className = "address-action-button recent-locations-button";
   recentButton.dataset.role = "recentLocations";
-  recentButton.title = "Recent locations";
-  recentButton.setAttribute("aria-label", "Recent locations");
+  recentButton.title = "Recent and favorite locations";
+  recentButton.setAttribute("aria-label", "Recent and favorite locations");
   recentButton.innerHTML = toolbarIcon("M4 6l4 4 4-4");
   address.addEventListener("click", (event) => {
     focusTab(tab.id);
@@ -2196,12 +2316,17 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
   addressInput.addEventListener("blur", () => {
     endPaneAddressEdit(address, addressInput);
   });
+  favoriteButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    focusTab(tab.id);
+    toggleFavoriteLocation(tab);
+  });
   recentButton.addEventListener("click", (event) => {
     event.stopPropagation();
     focusTab(tab.id);
     showRecentLocationsMenu(recentButton, tab);
   });
-  addressContainer.append(address, addressInput, recentButton);
+  addressContainer.append(address, addressInput, favoriteButton, recentButton);
   pathRow.append(addressContainer);
 
   const toolbar = document.createElement("div");
@@ -2299,9 +2424,13 @@ function updatePaneChrome(tab: ExplorerTab, pane: HTMLElement): void {
   if (address && addressInput && addressInput.classList.contains("hidden")) {
     address.replaceChildren(...createAddressNodes(tab));
   }
+  const favoriteButton = pane.querySelector<HTMLButtonElement>("[data-role='favoriteLocation']");
+  if (favoriteButton) {
+    updateFavoriteButton(favoriteButton, tab);
+  }
   const recentButton = pane.querySelector<HTMLButtonElement>("[data-role='recentLocations']");
   if (recentButton) {
-    recentButton.disabled = recentLocationOptions(tab).length === 0;
+    recentButton.disabled = recentLocationOptions(tab).length === 0 && favoriteLocationOptions().length === 0;
   }
   const searchInput = pane.querySelector<HTMLInputElement>("[data-role='search']");
   if (searchInput && document.activeElement !== searchInput && searchInput.value !== tab.searchQuery) {

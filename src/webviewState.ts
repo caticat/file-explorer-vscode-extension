@@ -20,6 +20,7 @@ export interface IconThemePayload {
 
 export const RECENT_LOCATIONS_DISPLAY_LIMIT = 5;
 export const RECENT_LOCATIONS_SAVE_LIMIT = 15;
+export const FAVORITE_LOCATIONS_SAVE_LIMIT = 10;
 
 export function isWorkspaceSession(value: unknown): value is WorkspaceSession {
   if (!value || typeof value !== "object") return false;
@@ -134,6 +135,41 @@ export function visibleRecentLocations(
   return locations
     .filter((candidate) => normalize(candidate) !== currentKey)
     .slice(0, maxCount);
+}
+
+export function normalizeFavoriteLocations(
+  value: unknown,
+  maxCount = FAVORITE_LOCATIONS_SAVE_LIMIT,
+  normalize: (value: string) => string = (item) => item
+): string[] {
+  return normalizeRecentLocations(value, maxCount, normalize);
+}
+
+export function addFavoriteLocation(
+  locations: string[],
+  location: string,
+  maxCount = FAVORITE_LOCATIONS_SAVE_LIMIT,
+  normalize: (value: string) => string = (value) => value
+): string[] {
+  return addRecentLocation(locations, location, maxCount, normalize);
+}
+
+export function removeFavoriteLocation(
+  locations: string[],
+  location: string,
+  normalize: (value: string) => string = (value) => value
+): string[] {
+  const key = normalize(location);
+  return locations.filter((candidate) => normalize(candidate) !== key);
+}
+
+export function isFavoriteLocation(
+  locations: string[],
+  location: string,
+  normalize: (value: string) => string = (value) => value
+): boolean {
+  const key = normalize(location);
+  return locations.some((candidate) => normalize(candidate) === key);
 }
 
 function normalizeStringMap(value: unknown): Record<string, string> {

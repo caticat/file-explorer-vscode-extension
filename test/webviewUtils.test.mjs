@@ -52,14 +52,19 @@ import {
   updateSelectionState
 } from "../src/webviewSelection.ts";
 import {
+  addFavoriteLocation,
   addRecentLocation,
+  FAVORITE_LOCATIONS_SAVE_LIMIT,
   initialActiveTabIndex,
   initialTabPaths,
+  isFavoriteLocation,
   isWorkspaceSession,
+  normalizeFavoriteLocations,
   normalizeIconTheme,
   normalizeListColumns,
   normalizeRecentLocations,
   RECENT_LOCATIONS_DISPLAY_LIMIT,
+  removeFavoriteLocation,
   restoredLayoutMode,
   visibleRecentLocations
 } from "../src/webviewState.ts";
@@ -333,6 +338,20 @@ test("visibleRecentLocations hides current path and limits display count", () =>
     visibleRecentLocations(locations, "/current", RECENT_LOCATIONS_DISPLAY_LIMIT),
     ["/a", "/b", "/c", "/d", "/e"]
   );
+});
+
+test("favorite locations normalize, add, remove, and match by platform key", () => {
+  const normalize = (value) => value.toLowerCase();
+  const normalized = normalizeFavoriteLocations(["C:\\A", "C:\\B", "c:\\a"], FAVORITE_LOCATIONS_SAVE_LIMIT, normalize);
+
+  assert.deepEqual(normalized, ["C:\\A", "C:\\B"]);
+  assert.deepEqual(
+    addFavoriteLocation(normalized, "C:\\C", FAVORITE_LOCATIONS_SAVE_LIMIT, normalize),
+    ["C:\\C", "C:\\A", "C:\\B"]
+  );
+  assert.deepEqual(removeFavoriteLocation(normalized, "c:\\a", normalize), ["C:\\B"]);
+  assert.equal(isFavoriteLocation(normalized, "c:\\b", normalize), true);
+  assert.equal(isFavoriteLocation(normalized, "c:\\c", normalize), false);
 });
 
 test("treeNodeKey normalizes paths using the active platform", () => {

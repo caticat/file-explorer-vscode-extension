@@ -580,11 +580,11 @@ button {
   border-color: var(--vscode-focusBorder);
 }
 
-.recent-locations-button {
+.address-action-button {
   flex: none;
   width: 24px;
   height: 24px;
-  margin-right: 2px;
+  margin-right: 1px;
   padding: 0;
   border-radius: 3px;
   background: transparent;
@@ -592,20 +592,27 @@ button {
   cursor: pointer;
 }
 
-.recent-locations-button .toolbar-icon {
+.address-action-button .toolbar-icon {
   width: 14px;
   height: 14px;
 }
 
-.recent-locations-button:hover:not(:disabled),
-.recent-locations-button:focus {
+.address-action-button:hover:not(:disabled),
+.address-action-button:focus {
   outline: none;
   background: var(--vscode-toolbar-hoverBackground);
 }
 
-.recent-locations-button:disabled {
+.address-action-button:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.favorite-location-button.active {
+  color: var(--vscode-inputOption-activeForeground);
+  background: var(--vscode-inputOption-activeBackground);
+  outline: 1px solid var(--vscode-inputOption-activeBorder, var(--vscode-focusBorder));
+  outline-offset: -1px;
 }
 
 .breadcrumb {
@@ -947,31 +954,14 @@ body.hide-size-column .file-size {
   z-index: 1001;
   width: min(420px, calc(100vw - 12px));
   max-width: calc(100vw - 12px);
+  max-height: min(360px, calc(100vh - 12px));
+  overflow-y: auto;
   padding: 4px;
   border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
   border-radius: 5px;
   background: var(--vscode-menu-background);
   color: var(--vscode-menu-foreground);
   box-shadow: 0 4px 16px rgb(0 0 0 / 28%);
-}
-
-.recent-locations-menu button {
-  display: grid;
-  width: 100%;
-  min-height: 42px;
-  padding: 5px 8px;
-  border-radius: 3px;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.recent-locations-menu button:hover,
-.recent-locations-menu button:focus {
-  outline: none;
-  color: var(--vscode-menu-selectionForeground);
-  background: var(--vscode-menu-selectionBackground);
 }
 
 .recent-location-name,
@@ -989,6 +979,67 @@ body.hide-size-column .file-size {
 .recent-location-path {
   color: var(--vscode-descriptionForeground);
   font-size: 11px;
+}
+
+.locations-menu-header {
+  padding: 4px 8px 3px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.locations-menu-separator {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--vscode-menu-separatorBackground, var(--vscode-panel-border));
+}
+
+.location-menu-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.location-menu-row.favorite {
+  grid-template-columns: minmax(0, 1fr) 28px;
+}
+
+.location-menu-target,
+.location-menu-favorite {
+  min-height: 42px;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.location-menu-target {
+  display: grid;
+  min-width: 0;
+  padding: 5px 8px;
+  text-align: left;
+}
+
+.location-menu-favorite {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--vscode-inputOption-activeForeground);
+}
+
+.location-menu-favorite .toolbar-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.location-menu-target:hover,
+.location-menu-target:focus,
+.location-menu-favorite:hover,
+.location-menu-favorite:focus {
+  outline: none;
+  color: var(--vscode-menu-selectionForeground);
+  background: var(--vscode-menu-selectionBackground);
 }
 
 .context-menu button {
@@ -1140,7 +1191,7 @@ body.sidebar-mode #search-input {
   padding: 0 4px;
 }
 
-body.sidebar-mode .recent-locations-button {
+body.sidebar-mode .address-action-button {
   width: 22px;
   height: 22px;
   margin-right: 1px;

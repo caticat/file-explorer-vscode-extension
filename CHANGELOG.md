@@ -1,5 +1,21 @@
 # Change Log
 
+## 0.2.6
+
+- Added workspace-specific favorite locations alongside recent locations in
+  the address-bar menu.
+- Added an address-bar star button for adding or removing the current folder as
+  a favorite in editor, sidebar, and tiled-pane layouts.
+- Split the address-bar menu into **Recent** and **Favorites** sections, with
+  favorites kept visible for quick navigation and removal.
+- Improved favorite-state visibility with an active star background and border.
+- Kept the locations menu open when removing favorites from the menu, while
+  preserving normal close behavior for navigation, outside clicks, and Escape.
+- Added a scroll limit to the locations menu so longer recent/favorite lists
+  stay inside the VS Code viewport.
+- Added tests for favorite-location normalization, de-duplication, removal, and
+  matching.
+
 ## 0.2.5
 
 - Added a workspace-specific recent locations menu inside the address bar.
