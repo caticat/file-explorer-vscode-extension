@@ -1,12 +1,16 @@
 # Change Log
 
-## Unreleased
+## 0.2.8
 
 - Refined context-menu labels and grouping so empty-area path actions refer to
   the current folder, and recursive-search result menus no longer show the
   ambiguous paste action.
 - Added **Refresh** to the empty-area context menu and made context-menu
   separators depend on visible menu groups.
+- Split Command Palette and keyboard-shortcut commands into dedicated English
+  and Chinese README sections.
+- Improved very narrow sidebar behavior by constraining context menus to the
+  viewport and simplifying details columns at compact widths.
 
 ## 0.2.7
 

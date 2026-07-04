@@ -66,7 +66,7 @@ editor area and sidebar.
 - Sidebar toolbar actions are grouped, with display controls visually separated
   from navigation and create actions.
 - Compact sidebar layout supports very narrow sidebars, including one-column
-  large-icon browsing.
+  large-icon browsing and compact details columns.
 - Optional workspace-specific restoration of tab order, paths, and active tab.
 - One initial tab per root folder in multi-root workspaces without saved state.
 - Back, forward, up, refresh, breadcrumbs, and manual path entry (`Ctrl+L`).
@@ -122,10 +122,27 @@ editor area and sidebar.
 - Explorer shortcuts: `/`, `Backspace`/`Alt+Up`, `Alt+Left`, `Alt+Right`, `F5`,
   `Ctrl+L`, `Enter`, `Space`, `F2`, `Delete`, `Shift+Delete`, `Ctrl+A`, arrow
   key selection, and incremental filename selection by typing.
-- Command Palette actions for focusing search/address input, switching details
-  or large-icon views, toggling hidden files, toggling/collapsing the editor
-  folder tree, and toggling tiled tabs. These commands do not define default
-  keyboard shortcuts, so you can bind only the ones you need.
+
+## Command Palette Actions
+
+These actions are available from the Command Palette and Keyboard Shortcuts
+editor. Except for **Simple File Explorer: Toggle**, they do not define default
+keyboard shortcuts, so you can bind only the commands you need.
+
+- **Simple File Explorer: Toggle** — toggle the editor explorer.
+- **Simple File Explorer: Move Between Editor and Sidebar** — switch the current
+  explorer location.
+- **Simple File Explorer: New Tab**, **Close Tab**, **Next Tab**,
+  **Previous Tab**, and **Activate Tab 1-9** — manage explorer tabs.
+- **Simple File Explorer: Focus Search** — focus the active search box.
+- **Simple File Explorer: Focus Address Bar** — edit the active path.
+- **Simple File Explorer: Toggle Hidden Files** — show or hide dot files.
+- **Simple File Explorer: Details View** and **Large Icons** — switch display
+  modes.
+- **Simple File Explorer: Toggle Folder Tree** and **Collapse Folder Tree** —
+  control the editor-only navigation tree.
+- **Simple File Explorer: Toggle Tiled Tabs** — switch between tab view and
+  tiled-pane view in the editor explorer.
 
 ## Development
 
@@ -234,7 +251,8 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 会铺满 editor 或 sidebar 可用区域，不保留额外 webview 边距。
 - 侧边栏页签会自动压缩宽度，保持新建页签按钮可用。
 - 侧边栏工具栏按导航、新建和显示控制分组，列表/图标等显示选项会单独区分。
-- 更紧凑的侧边栏布局支持很窄的宽度，包括大图标视图一行一个图标。
+- 更紧凑的侧边栏布局支持很窄的宽度，包括大图标视图一行一个图标和紧凑的
+  详细信息列。
 - 可按工作区恢复页签顺序、当前路径和活动页签。
 - 多根工作区在没有保存状态时，会为每个根目录创建一个初始页签。
 - 地址栏提供最近位置和收藏位置下拉菜单，可快速回到当前工作区中的常用目录。
@@ -259,9 +277,6 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 复制、移动、删除到回收站和永久删除会显示 VS Code 进度提示。
 - 支持 `Ctrl` 点击、`Shift` 点击、鼠标框选和 `Ctrl+A` 全选。
 - 支持方向键移动焦点、`Space` 选择、`Ctrl`/`Shift` 配合键盘进行多选和范围选择。
-- 命令面板提供搜索框/地址栏聚焦、详细信息/大图标视图切换、隐藏文件切换、
-  editor 文件夹树显示/合并和平铺页签切换等命令。这些命令不带默认快捷键，
-  需要时可以在 VS Code 键盘快捷方式中自行绑定。
 - 支持右键菜单复制、剪切、粘贴、重命名、删除，以及空白区域粘贴；粘贴多个文件后会
   同时选中新生成的内容。
 - 右键菜单支持复制名称、路径、工作区相对路径、文件所在文件夹路径，以及文件所在
@@ -292,6 +307,26 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - `Space`：选择当前焦点项；`Ctrl+Space` 切换当前焦点项的选中状态。
 - `F5`：刷新当前目录。
 - 在非输入框中直接输入字符：按文件名前缀快速选中。
+
+## 命令面板动作
+
+这些动作可以在命令面板和 VS Code 键盘快捷方式中搜索到。除了
+**Simple File Explorer: Toggle** 之外，它们都不带默认快捷键；需要时可以只绑定
+自己常用的命令。
+
+- **Simple File Explorer: Toggle**：切换 editor 浏览器显示。
+- **Simple File Explorer: Move Between Editor and Sidebar**：在 editor 和 sidebar
+  之间移动当前浏览器。
+- **Simple File Explorer: New Tab**、**Close Tab**、**Next Tab**、
+  **Previous Tab** 和 **Activate Tab 1-9**：管理浏览器页签。
+- **Simple File Explorer: Focus Search**：聚焦当前搜索框。
+- **Simple File Explorer: Focus Address Bar**：编辑当前路径。
+- **Simple File Explorer: Toggle Hidden Files**：显示或隐藏点文件。
+- **Simple File Explorer: Details View** 和 **Large Icons**：切换显示模式。
+- **Simple File Explorer: Toggle Folder Tree** 和 **Collapse Folder Tree**：
+  控制 editor 模式下的文件夹树。
+- **Simple File Explorer: Toggle Tiled Tabs**：在 editor 浏览器的普通页签和平铺
+  pane 视图之间切换。
 
 ## 设置
 

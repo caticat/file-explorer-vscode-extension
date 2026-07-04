@@ -957,7 +957,8 @@ body.hide-size-column .file-size {
 .context-menu {
   position: fixed;
   z-index: 1000;
-  min-width: 220px;
+  min-width: min(220px, calc(100vw - 12px));
+  max-width: calc(100vw - 12px);
   padding: 4px;
   border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
   border-radius: 5px;
@@ -1320,6 +1321,32 @@ body.sidebar-mode .sidebar-view-switch .icon-button.active {
 
   .create-group,
   .toolbar-divider {
+    display: none;
+  }
+}
+
+@media (max-width: 320px) {
+  body.sidebar-mode .list-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.sidebar-mode .list-header button[data-sort="modified"],
+  body.sidebar-mode .list-header button[data-sort="size"],
+  body.sidebar-mode .file-modified,
+  body.sidebar-mode .file-size {
+    display: none;
+  }
+
+  body.sidebar-mode .file-item.list,
+  body.sidebar-mode.hide-size-column .file-item.list,
+  body.sidebar-mode.hide-modified-column .file-item.list,
+  body.sidebar-mode.hide-modified-column.hide-size-column .file-item.list {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 260px) {
+  body.sidebar-mode .sidebar-toolbar-divider {
     display: none;
   }
 }
