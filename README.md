@@ -120,6 +120,10 @@ editor area and sidebar.
 - Explorer shortcuts: `/`, `Backspace`/`Alt+Up`, `Alt+Left`, `Alt+Right`, `F5`,
   `Ctrl+L`, `Enter`, `Space`, `F2`, `Delete`, `Shift+Delete`, `Ctrl+A`, arrow
   key selection, and incremental filename selection by typing.
+- Command Palette actions for focusing search/address input, switching details
+  or large-icon views, toggling hidden files, toggling/collapsing the editor
+  folder tree, and toggling tiled tabs. These commands do not define default
+  keyboard shortcuts, so you can bind only the ones you need.
 
 ## Development
 
@@ -251,6 +255,9 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 复制、移动、删除到回收站和永久删除会显示 VS Code 进度提示。
 - 支持 `Ctrl` 点击、`Shift` 点击、鼠标框选和 `Ctrl+A` 全选。
 - 支持方向键移动焦点、`Space` 选择、`Ctrl`/`Shift` 配合键盘进行多选和范围选择。
+- 命令面板提供搜索框/地址栏聚焦、详细信息/大图标视图切换、隐藏文件切换、
+  editor 文件夹树显示/合并和平铺页签切换等命令。这些命令不带默认快捷键，
+  需要时可以在 VS Code 键盘快捷方式中自行绑定。
 - 支持右键菜单复制、剪切、粘贴、重命名、删除，以及空白区域粘贴；粘贴多个文件后会
   同时选中新生成的内容。
 - 右键菜单支持复制名称、路径、工作区相对路径、文件所在文件夹路径，以及文件所在

@@ -1,5 +1,13 @@
 # Change Log
 
+## Unreleased
+
+- Added command-only actions for focusing search/address input, toggling hidden
+  files, switching details/large-icon views, toggling/collapsing the editor
+  folder tree, and toggling tiled tabs without adding default keybindings.
+- Improved empty-state messages so searches, recursive searches, and hidden-file
+  filtering explain why no items are currently visible.
+
 ## 0.2.6
 
 - Added workspace-specific favorite locations alongside recent locations in

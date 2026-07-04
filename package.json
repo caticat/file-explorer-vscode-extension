@@ -53,6 +53,14 @@
     "onCommand:workspaceFileExplorer.activateTab7",
     "onCommand:workspaceFileExplorer.activateTab8",
     "onCommand:workspaceFileExplorer.activateTab9",
+    "onCommand:workspaceFileExplorer.focusSearch",
+    "onCommand:workspaceFileExplorer.focusAddressBar",
+    "onCommand:workspaceFileExplorer.toggleHiddenFiles",
+    "onCommand:workspaceFileExplorer.setDetailsView",
+    "onCommand:workspaceFileExplorer.setLargeIconsView",
+    "onCommand:workspaceFileExplorer.toggleFolderTree",
+    "onCommand:workspaceFileExplorer.collapseFolderTree",
+    "onCommand:workspaceFileExplorer.toggleTiledTabs",
     "onCommand:workspaceFileExplorer.openFromExplorer",
     "onCommand:workspaceFileExplorer.revealInSimpleFileExplorer",
     "onView:workspaceFileExplorer.sidebar"
@@ -119,6 +127,38 @@
       {
         "command": "workspaceFileExplorer.activateTab9",
         "title": "Simple File Explorer: Activate Tab 9"
+      },
+      {
+        "command": "workspaceFileExplorer.focusSearch",
+        "title": "Simple File Explorer: Focus Search"
+      },
+      {
+        "command": "workspaceFileExplorer.focusAddressBar",
+        "title": "Simple File Explorer: Focus Address Bar"
+      },
+      {
+        "command": "workspaceFileExplorer.toggleHiddenFiles",
+        "title": "Simple File Explorer: Toggle Hidden Files"
+      },
+      {
+        "command": "workspaceFileExplorer.setDetailsView",
+        "title": "Simple File Explorer: Details View"
+      },
+      {
+        "command": "workspaceFileExplorer.setLargeIconsView",
+        "title": "Simple File Explorer: Large Icons"
+      },
+      {
+        "command": "workspaceFileExplorer.toggleFolderTree",
+        "title": "Simple File Explorer: Toggle Folder Tree"
+      },
+      {
+        "command": "workspaceFileExplorer.collapseFolderTree",
+        "title": "Simple File Explorer: Collapse Folder Tree"
+      },
+      {
+        "command": "workspaceFileExplorer.toggleTiledTabs",
+        "title": "Simple File Explorer: Toggle Tiled Tabs"
       },
       {
         "command": "workspaceFileExplorer.toggleViewLocation",

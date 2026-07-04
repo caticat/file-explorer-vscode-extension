@@ -78,6 +78,15 @@ interface ExplorerWebviewHost {
 }
 
 type ViewLocation = "editor" | "sidebar";
+type WebviewCommandAction =
+  | "focusSearch"
+  | "focusAddressBar"
+  | "toggleHiddenFiles"
+  | "setDetailsView"
+  | "setLargeIconsView"
+  | "toggleFolderTree"
+  | "collapseFolderTree"
+  | "toggleTiledTabs";
 
 let activePanel: vscode.WebviewPanel | undefined;
 let activePanelReady = false;
@@ -171,6 +180,30 @@ export function activate(context: vscode.ExtensionContext): void {
         postTabCommand(openExplorer, "activate", index)
       )
     ),
+    vscode.commands.registerCommand("workspaceFileExplorer.focusSearch", () =>
+      postWebviewCommand(openExplorer, "focusSearch")
+    ),
+    vscode.commands.registerCommand("workspaceFileExplorer.focusAddressBar", () =>
+      postWebviewCommand(openExplorer, "focusAddressBar")
+    ),
+    vscode.commands.registerCommand("workspaceFileExplorer.toggleHiddenFiles", () =>
+      postWebviewCommand(openExplorer, "toggleHiddenFiles")
+    ),
+    vscode.commands.registerCommand("workspaceFileExplorer.setDetailsView", () =>
+      postWebviewCommand(openExplorer, "setDetailsView")
+    ),
+    vscode.commands.registerCommand("workspaceFileExplorer.setLargeIconsView", () =>
+      postWebviewCommand(openExplorer, "setLargeIconsView")
+    ),
+    vscode.commands.registerCommand("workspaceFileExplorer.toggleFolderTree", () =>
+      postWebviewCommand(openExplorer, "toggleFolderTree")
+    ),
+    vscode.commands.registerCommand("workspaceFileExplorer.collapseFolderTree", () =>
+      postWebviewCommand(openExplorer, "collapseFolderTree")
+    ),
+    vscode.commands.registerCommand("workspaceFileExplorer.toggleTiledTabs", () =>
+      postWebviewCommand(openExplorer, "toggleTiledTabs")
+    ),
     vscode.commands.registerCommand("workspaceFileExplorer.toggleViewLocation", toggleViewLocation),
     vscode.commands.registerCommand(
       "workspaceFileExplorer.openFromExplorer",
@@ -238,17 +271,34 @@ async function postTabCommand(
   action: "new" | "close" | "next" | "previous" | "activate",
   index?: number
 ): Promise<void> {
+  const webview = activeExplorerWebview();
+  if (!webview) {
+    await openExplorer();
+    return;
+  }
+  await webview.postMessage({ command: "tabCommand", action, index });
+}
+
+async function postWebviewCommand(
+  openExplorer: () => Promise<void> | void,
+  action: WebviewCommandAction
+): Promise<void> {
+  const webview = activeExplorerWebview();
+  if (!webview) {
+    await openExplorer();
+    return;
+  }
+  await webview.postMessage({ command: "webviewCommand", action });
+}
+
+function activeExplorerWebview(): vscode.Webview | undefined {
   const webview =
     activePanel?.visible && activePanelReady
       ? activePanel.webview
       : activeSidebarView?.visible && activeSidebarReady
         ? activeSidebarView.webview
         : undefined;
-  if (!webview) {
-    await openExplorer();
-    return;
-  }
-  await webview.postMessage({ command: "tabCommand", action, index });
+  return webview;
 }
 
 function createExplorerPanel(context: vscode.ExtensionContext): void {

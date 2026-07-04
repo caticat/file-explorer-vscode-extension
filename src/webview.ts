@@ -758,6 +758,10 @@ function handleHostMessage(message: Record<string, unknown>): void {
       handleTabCommand(String(message.action), Number(message.index));
       break;
     }
+    case "webviewCommand": {
+      handleWebviewCommand(String(message.action));
+      break;
+    }
     case "flushSession": {
       flushSavedSession();
       break;
@@ -1114,6 +1118,47 @@ function handleTabCommand(action: string, index: number): void {
         activateTabAtIndex(index);
       }
       break;
+  }
+}
+
+function handleWebviewCommand(action: string): void {
+  switch (action) {
+    case "focusSearch":
+      focusSearchInput();
+      break;
+    case "focusAddressBar":
+      beginAddressEdit();
+      break;
+    case "toggleHiddenFiles":
+      if (layoutMode === "panes" && viewKind === "editor") {
+        toggleAllHiddenFiles();
+      } else {
+        toggleHiddenFiles();
+      }
+      break;
+    case "setDetailsView":
+      setCommandViewMode("list");
+      break;
+    case "setLargeIconsView":
+      setCommandViewMode("grid");
+      break;
+    case "toggleFolderTree":
+      toggleTreePane();
+      break;
+    case "collapseFolderTree":
+      collapseTreePane();
+      break;
+    case "toggleTiledTabs":
+      togglePaneLayout();
+      break;
+  }
+}
+
+function setCommandViewMode(viewMode: ExplorerTab["viewMode"]): void {
+  if (layoutMode === "panes" && viewKind === "editor") {
+    setAllTabsViewMode(viewMode);
+  } else {
+    setViewMode(viewMode);
   }
 }
 
@@ -2627,7 +2672,23 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
 
   const showEmpty = !tab.loading && data.length === 0;
   target.empty.classList.toggle("hidden", !showEmpty);
-  target.empty.textContent = tab.searchQuery ? "No matching files." : "This folder is empty.";
+  target.empty.textContent = emptyStateMessage(tab);
+}
+
+function emptyStateMessage(tab: ExplorerTab): string {
+  if (tab.searchQuery && tab.recursiveSearch) {
+    return tab.showHidden
+      ? "No matching files in this folder or its subfolders."
+      : "No matching visible files. Hidden files are not included.";
+  }
+  if (tab.searchQuery) {
+    return tab.showHidden
+      ? "No matching files in this folder."
+      : "No matching visible files. Hidden files are not included.";
+  }
+  return tab.showHidden
+    ? "This folder is empty."
+    : "This folder has no visible files. Hidden files are not shown.";
 }
 
 function listRowHeight(): number {
