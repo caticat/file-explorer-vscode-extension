@@ -25,6 +25,36 @@ export function filterItems<T extends { name: string }>(
   );
 }
 
+export function emptyStateMessage<T extends { name: string }>(
+  items: T[],
+  options: { showHidden: boolean; searchQuery: string; recursiveSearch: boolean }
+): string {
+  if (options.searchQuery && options.recursiveSearch) {
+    return options.showHidden
+      ? "No matching files in this folder or its subfolders."
+      : "No matching visible files. Hidden files are not included.";
+  }
+
+  if (options.searchQuery) {
+    if (options.showHidden) {
+      return "No matching files in this folder.";
+    }
+    const matchesQuery = createNameMatcher(options.searchQuery);
+    const hasHiddenMatch = items.some((item) => item.name.startsWith(".") && matchesQuery(item.name));
+    return hasHiddenMatch
+      ? "Only matching hidden files are currently hidden."
+      : "No matching visible files.";
+  }
+
+  if (options.showHidden || items.length === 0) {
+    return "This folder is empty.";
+  }
+
+  return items.some((item) => item.name.startsWith("."))
+    ? "This folder only contains hidden files."
+    : "This folder is empty.";
+}
+
 export function sortItemsInPlace<T extends SortableDirectoryItem>(
   items: T[],
   sortState: ItemSortState,

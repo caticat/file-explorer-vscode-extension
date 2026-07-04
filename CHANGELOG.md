@@ -1,12 +1,16 @@
 # Change Log
 
-## Unreleased
+## 0.2.7
 
 - Added command-only actions for focusing search/address input, toggling hidden
   files, switching details/large-icon views, toggling/collapsing the editor
   folder tree, and toggling tiled tabs without adding default keybindings.
 - Improved empty-state messages so searches, recursive searches, and hidden-file
   filtering explain why no items are currently visible.
+- Clarified tiled-pane focus styling so the pane receiving keyboard actions is
+  easier to identify.
+- Added **New File** and **New Folder** to the empty-area context menu, using the
+  folder or tiled pane where the menu was opened.
 
 ## 0.2.6
 

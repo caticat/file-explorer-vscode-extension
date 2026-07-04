@@ -2,7 +2,7 @@ import "./webview.css";
 import { formatSize } from "./webviewFormat";
 import { createNameMatcher } from "./webviewMatcher";
 import { copySelectionStatus, uniqueWatcherPaths } from "./webviewCommandState";
-import { filterItems, nextSortState, sortItemsInPlace } from "./webviewItems";
+import { emptyStateMessage, filterItems, nextSortState, sortItemsInPlace } from "./webviewItems";
 import { paneGridLayout, paneRowSpan } from "./webviewPane";
 import {
   type SelectionState as PureSelectionState,
@@ -359,6 +359,9 @@ app.innerHTML = `
     </div>
   </div>
   <div id="context-menu" class="context-menu hidden" role="menu">
+    <button id="new-file-menu" role="menuitem">New File</button>
+    <button id="new-folder-menu" role="menuitem">New Folder</button>
+    <div id="create-menu-separator" class="menu-separator"></div>
     <button id="reveal-system" role="menuitem">Reveal in System File Manager</button>
     <button id="show-in-explorer" role="menuitem">Show in Simple File Explorer</button>
     <div id="item-menu-separator" class="menu-separator"></div>
@@ -432,6 +435,9 @@ const elements = {
   paneGrid: byId("pane-grid"),
   contextMenu: byId("context-menu"),
   recentLocationsMenu: byId("recent-locations-menu"),
+  newFileMenu: button("new-file-menu"),
+  newFolderMenu: button("new-folder-menu"),
+  createMenuSeparator: byId("create-menu-separator"),
   revealSystem: button("reveal-system"),
   showInExplorer: button("show-in-explorer"),
   itemMenuSeparator: byId("item-menu-separator"),
@@ -544,6 +550,8 @@ elements.showInExplorer.addEventListener("click", () => {
   }
   hideContextMenu();
 });
+elements.newFileMenu.addEventListener("click", () => runContextMenuAction(() => createItemInContext(false)));
+elements.newFolderMenu.addEventListener("click", () => runContextMenuAction(() => createItemInContext(true)));
 elements.openTerminalHere.addEventListener("click", () => runContextMenuAction(openTerminalHere));
 elements.copyName.addEventListener("click", () => runContextMenuAction(copyName));
 elements.copyPath.addEventListener("click", () => runContextMenuAction(() => copyPath(false)));
@@ -2672,23 +2680,11 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
 
   const showEmpty = !tab.loading && data.length === 0;
   target.empty.classList.toggle("hidden", !showEmpty);
-  target.empty.textContent = emptyStateMessage(tab);
-}
-
-function emptyStateMessage(tab: ExplorerTab): string {
-  if (tab.searchQuery && tab.recursiveSearch) {
-    return tab.showHidden
-      ? "No matching files in this folder or its subfolders."
-      : "No matching visible files. Hidden files are not included.";
-  }
-  if (tab.searchQuery) {
-    return tab.showHidden
-      ? "No matching files in this folder."
-      : "No matching visible files. Hidden files are not included.";
-  }
-  return tab.showHidden
-    ? "This folder is empty."
-    : "This folder has no visible files. Hidden files are not shown.";
+  target.empty.textContent = emptyStateMessage(tab.items, {
+    showHidden: tab.showHidden,
+    searchQuery: tab.searchQuery,
+    recursiveSearch: tab.recursiveSearch
+  });
 }
 
 function listRowHeight(): number {
@@ -2995,6 +2991,9 @@ function showContextMenu(
 ): void {
   contextMenuItem = item;
   const itemMenu = Boolean(item);
+  elements.newFileMenu.classList.toggle("hidden", itemMenu);
+  elements.newFolderMenu.classList.toggle("hidden", itemMenu);
+  elements.createMenuSeparator.classList.toggle("hidden", itemMenu);
   elements.revealSystem.classList.toggle("hidden", !itemMenu);
   elements.showInExplorer.classList.toggle("hidden", !itemMenu || !allowShowInExplorer);
   elements.itemMenuSeparator.classList.toggle("hidden", !itemMenu);
@@ -3024,6 +3023,7 @@ function showContextMenu(
 function showViewportContextMenu(event: MouseEvent): void {
   if ((event.target as HTMLElement).closest(".file-item")) return;
   event.preventDefault();
+  focusTabForEventTarget(event.target);
   clearSelection();
   showContextMenu(event.clientX, event.clientY, undefined, false);
 }
@@ -3031,6 +3031,14 @@ function showViewportContextMenu(event: MouseEvent): void {
 function hideContextMenu(): void {
   contextMenuItem = undefined;
   elements.contextMenu.classList.add("hidden");
+}
+
+function focusTabForEventTarget(target: EventTarget | null): void {
+  const pane = (target as HTMLElement | null)?.closest<HTMLElement>(".explorer-pane");
+  const tabId = pane?.dataset.tabId;
+  if (tabId) {
+    focusTab(tabId);
+  }
 }
 
 function runContextMenuAction(action: () => void): void {
@@ -3050,6 +3058,13 @@ function contextMenuPath(): string {
 function contextMenuDirectoryPath(): string {
   if (!contextMenuItem) return activeTab().path;
   return contextMenuItem.isDirectory ? contextMenuItem.path : dirname(contextMenuItem.path);
+}
+
+function createItemInContext(isDirectory: boolean): void {
+  vscode.postMessage({
+    command: isDirectory ? "createFolder" : "createFile",
+    path: contextMenuDirectoryPath()
+  });
 }
 
 function copyName(): void {

@@ -104,6 +104,7 @@ editor area and sidebar.
 - New file, new folder, rename, move-to-trash, and permanent-delete operations.
 - Multi-selection with `Ctrl` / `Cmd` click, `Shift` click, keyboard navigation,
   mouse box selection, and `Ctrl+A` / `Cmd+A`.
+- Empty-area context menus can create files or folders in the current folder.
 - Copy, cut, paste, and empty-area paste from keyboard shortcuts or the context
   menu, with newly pasted items selected together.
 - Copy, move, trash, and permanent-delete operations show VS Code progress
@@ -252,6 +253,7 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 文件名搜索支持基础通配符：`*` 匹配任意字符，`?` 匹配单个字符。
 - 新建文件后会自动打开并聚焦。
 - 新建、重命名、删除到回收站、永久删除、复制、剪切和粘贴。
+- 空白区域右键菜单可在当前目录中新建文件或文件夹。
 - 复制、移动、删除到回收站和永久删除会显示 VS Code 进度提示。
 - 支持 `Ctrl` 点击、`Shift` 点击、鼠标框选和 `Ctrl+A` 全选。
 - 支持方向键移动焦点、`Space` 选择、`Ctrl`/`Shift` 配合键盘进行多选和范围选择。

@@ -181,9 +181,26 @@ button {
   overflow: hidden;
 }
 
-.explorer-pane.focused {
+.explorer-pane.focused,
+.explorer-pane:focus-within {
   border-color: var(--vscode-focusBorder);
   box-shadow: inset 0 2px var(--vscode-focusBorder);
+}
+
+.explorer-pane.focused .pane-header,
+.explorer-pane:focus-within .pane-header {
+  color: var(--vscode-list-activeSelectionForeground);
+  background: var(--vscode-list-activeSelectionBackground);
+}
+
+.explorer-pane.focused .pane-path-row,
+.explorer-pane:focus-within .pane-path-row {
+  border-bottom-color: var(--vscode-focusBorder);
+}
+
+.explorer-pane.focused .pane-title,
+.explorer-pane:focus-within .pane-title {
+  font-weight: 600;
 }
 
 .pane-header,

@@ -21,6 +21,7 @@ import {
   uniqueWatcherPaths
 } from "../src/webviewCommandState.ts";
 import {
+  emptyStateMessage,
   filterItems,
   nextSortState,
   sortItemsInPlace
@@ -397,6 +398,32 @@ test("filterItems applies hidden-file and search filters", () => {
   assert.deepEqual(
     filterItems(items, { showHidden: true, searchQuery: "*.md" }).map((item) => item.name),
     ["README.md"]
+  );
+});
+
+test("emptyStateMessage explains hidden-file and search empty states", () => {
+  const hiddenOnly = [{ name: ".env" }];
+  const mixed = [{ name: "README.md" }, { name: ".secret.txt" }];
+
+  assert.equal(
+    emptyStateMessage([], { showHidden: false, searchQuery: "", recursiveSearch: false }),
+    "This folder is empty."
+  );
+  assert.equal(
+    emptyStateMessage(hiddenOnly, { showHidden: false, searchQuery: "", recursiveSearch: false }),
+    "This folder only contains hidden files."
+  );
+  assert.equal(
+    emptyStateMessage(mixed, { showHidden: false, searchQuery: "secret", recursiveSearch: false }),
+    "Only matching hidden files are currently hidden."
+  );
+  assert.equal(
+    emptyStateMessage(mixed, { showHidden: false, searchQuery: "missing", recursiveSearch: false }),
+    "No matching visible files."
+  );
+  assert.equal(
+    emptyStateMessage(mixed, { showHidden: false, searchQuery: "secret", recursiveSearch: true }),
+    "No matching visible files. Hidden files are not included."
   );
 });
 
