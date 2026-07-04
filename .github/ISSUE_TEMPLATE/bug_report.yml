@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a problem with Simple File Explorer.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest set of steps that reproduces the problem.
+      placeholder: |
+        1. Open Simple File Explorer
+        2. Navigate to ...
+        3. Click ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the extension version, VS Code version, OS, and whether this is local, WSL, Dev Container, or Remote SSH.
+      placeholder: |
+        Extension:
+        VS Code:
+        OS:
+        Workspace type:
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Additional details
+      description: Screenshots, logs, folder size, view mode, or anything else that may help.
+    validations:
+      required: false

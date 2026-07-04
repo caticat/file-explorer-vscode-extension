@@ -1,7 +1,7 @@
 {
   "name": "workspace-file-explorer",
   "displayName": "Simple File Explorer",
-  "description": "A tabbed, high-performance file explorer for Visual Studio Code.",
+  "description": "A Windows Explorer-style file manager for VS Code with tabs, tiled panes, fast search, and Remote SSH support.",
   "version": "0.2.10",
   "publisher": "panjie039",
   "repository": {
@@ -26,7 +26,10 @@
     "file explorer",
     "file manager",
     "tabbed explorer",
+    "folder browser",
+    "remote ssh",
     "large folders",
+    "workspace",
     "productivity"
   ],
   "icon": "assets/file-explorer.png",
@@ -35,6 +38,7 @@
     "assets/**",
     "README.md",
     "CHANGELOG.md",
+    "SECURITY.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"
   ],

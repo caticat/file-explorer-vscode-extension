@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest an improvement for Simple File Explorer.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow
+      description: What file-management workflow are you trying to improve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior
+      description: What is difficult, missing, or slower than expected today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should Simple File Explorer do instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Mention platform details, Remote SSH usage, folder size, or similar tools if relevant.
+    validations:
+      required: false
