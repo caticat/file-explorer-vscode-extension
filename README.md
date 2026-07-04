@@ -88,6 +88,20 @@ editor area and sidebar.
 The core workflow is stable for daily use. New versions mainly refine edge
 cases, usability, and platform support.
 
+## Platform support
+
+- Windows and Linux are supported.
+- Remote SSH workspaces are supported. The extension runs on the remote
+  workspace host so file browsing and file operations apply to remote files.
+  **Reveal in System File Manager** is hidden in remote windows because remote
+  paths cannot reliably be opened in the local operating system file manager.
+  File icon themes can be reused only when the theme is also available to the
+  remote extension host; otherwise icons fall back to the built-in Codicon set.
+- macOS should work through the same Node.js and VS Code APIs, but is not yet
+  part of the tested release matrix.
+- Browser-only VS Code environments are not supported because local directory
+  streaming uses the Node.js file system API.
+
 ## Features
 
 ### Layout and navigation
@@ -219,17 +233,6 @@ keyboard shortcuts, so you can bind only the commands you need.
 - **Simple File Explorer: Toggle Tiled Tabs** — switch between tab view and
   tiled-pane view in the editor explorer.
 
-## Development
-
-```bash
-npm install
-npm run compile
-npm test
-```
-
-Press `F5` in VS Code and run `Simple File Explorer: Open` in the Extension
-Development Host.
-
 ## Settings
 
 - `simpleFileExplorer.restoreWorkspaceSession` — restore tab order, current
@@ -284,25 +287,22 @@ Open VSX also helps other users decide whether to try it.
 
 Thanks for using Simple File Explorer.
 
+## Development
+
+```bash
+npm install
+npm run compile
+npm test
+```
+
+Press `F5` in VS Code and run `Simple File Explorer: Open` in the Extension
+Development Host.
+
 ## Attribution and Originality
 
 This project does not copy source code, styles, or assets from
 `Abdulkader-Safi/vscode-file-explorer`. It independently implements a similar
 high-level product concept.
-
-## Platform support
-
-- Windows and Linux are supported.
-- Remote SSH workspaces are supported. The extension runs on the remote
-  workspace host so file browsing and file operations apply to remote files.
-  **Reveal in System File Manager** is hidden in remote windows because remote
-  paths cannot reliably be opened in the local operating system file manager.
-  File icon themes can be reused only when the theme is also available to the
-  remote extension host; otherwise icons fall back to the built-in Codicon set.
-- macOS should work through the same Node.js and VS Code APIs, but is not yet
-  part of the tested release matrix.
-- Browser-only VS Code environments are not supported because local directory
-  streaming uses the Node.js file system API.
 
 ## License
 
