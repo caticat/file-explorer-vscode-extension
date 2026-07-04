@@ -142,6 +142,7 @@ let preferredRecursiveSearch = false;
 let listColumns: ListColumnPreferences = { modified: true, size: true };
 let iconTheme: IconThemePayload | undefined;
 let restoreWorkspaceSession = true;
+let revealInSystemAvailable = true;
 let tabs: ExplorerTab[] = [];
 let activeTabId = "";
 let recentLocations: string[] = [];
@@ -724,6 +725,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
         normalizeForComparison
       );
       restoreWorkspaceSession = message.restoreWorkspaceSession !== false;
+      revealInSystemAvailable = message.revealInSystemAvailable !== false;
       const workspaceSession = isWorkspaceSession(message.workspaceSession)
         ? message.workspaceSession
         : undefined;
@@ -2998,7 +3000,7 @@ function showContextMenu(
   elements.newFileMenu.classList.toggle("hidden", itemMenu);
   elements.newFolderMenu.classList.toggle("hidden", itemMenu);
   elements.refreshMenu.classList.toggle("hidden", itemMenu);
-  elements.revealSystem.classList.toggle("hidden", !itemMenu);
+  elements.revealSystem.classList.toggle("hidden", !itemMenu || !revealInSystemAvailable);
   elements.showInExplorer.classList.toggle("hidden", !itemMenu || !allowShowInExplorer);
   elements.copyName.classList.toggle("hidden", !itemMenu);
   elements.copyDirectoryPath.classList.toggle("hidden", !itemMenu || item?.isDirectory === true);

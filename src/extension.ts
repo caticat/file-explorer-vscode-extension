@@ -504,6 +504,7 @@ async function handleMessage(
         await openFile(asString(message.path));
         break;
       case "revealInSystem":
+        if (vscode.env.remoteName) return;
         await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(asString(message.path)));
         break;
       case "copyPath":
@@ -702,6 +703,7 @@ async function sendInitialState(
     restoreWorkspaceSession,
     workspaceSession,
     viewKind: panel.viewKind,
+    revealInSystemAvailable: !vscode.env.remoteName,
     recentLocations: readRecentLocations(context),
     favoriteLocations: readFavoriteLocations(context),
     preferredTreeVisible: context.globalState.get<boolean>("preferredTreeVisible", false),

@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.2.9
+
+- Declared the extension as a workspace extension for Remote SSH and hid
+  **Reveal in System File Manager** in remote windows.
+- Documented that file icon themes in Remote SSH windows can only be reused
+  when the theme is available to the remote extension host; otherwise the
+  built-in Codicon fallback is used.
+
 ## 0.2.8
 
 - Refined context-menu labels and grouping so empty-area path actions refer to

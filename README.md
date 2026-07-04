@@ -163,7 +163,9 @@ Development Host.
   `editor` or `sidebar`. Default: `editor`.
 - `simpleFileExplorer.iconThemeMode` — choose file and folder icons:
   `auto` reuses the current VS Code file icon theme when possible, while
-  `codicon` always uses the built-in fallback icons. Default: `auto`.
+  `codicon` always uses the built-in fallback icons. In Remote SSH windows,
+  `auto` can only reuse icon themes available to the remote extension host;
+  otherwise the built-in fallback icons are used. Default: `auto`.
 - `simpleFileExplorer.treeProbeChildFolders` — check whether folders in the
   editor tree have visible child folders before showing expand arrows. Default:
   `false` for better performance.
@@ -194,6 +196,12 @@ high-level product concept.
 ## Platform support
 
 - Windows and Linux are supported.
+- Remote SSH workspaces are supported. The extension runs on the remote
+  workspace host so file browsing and file operations apply to remote files.
+  **Reveal in System File Manager** is hidden in remote windows because remote
+  paths cannot reliably be opened in the local operating system file manager.
+  File icon themes can be reused only when the theme is also available to the
+  remote extension host; otherwise icons fall back to the built-in Codicon set.
 - macOS should work through the same Node.js and VS Code APIs, but is not yet
   part of the tested release matrix.
 - Browser-only VS Code environments are not supported because local directory
@@ -290,6 +298,10 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - 自动刷新当前打开目录，不递归监控整个项目。
 - 当前打开目录被删除时，自动回退到有效父目录或其他工作区根目录。
 - 支持 Windows 和 Linux；macOS 理论兼容但尚未正式测试。
+- 支持 Remote SSH 工作区。扩展会运行在远程 workspace host 上，因此浏览和文件
+  操作会作用于远程文件；远程窗口中会隐藏 **Reveal in System File Manager**，
+  因为远程路径无法可靠地在本地系统文件管理器中打开。文件图标主题只有在远程
+  extension host 也可访问时才能复用，否则会回退到内置 Codicon 图标。
 
 ## 常用快捷键
 
@@ -335,7 +347,9 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 - `simpleFileExplorer.viewLocation`：选择显示位置，可选 `editor` 或 `sidebar`，
   默认 `editor`。
 - `simpleFileExplorer.iconThemeMode`：选择文件和文件夹图标，`auto` 会尽量复用
-  当前 VS Code 文件图标主题，`codicon` 始终使用内置兜底图标，默认 `auto`。
+  当前 VS Code 文件图标主题，`codicon` 始终使用内置兜底图标。Remote SSH 窗口中，
+  `auto` 只能复用远程 extension host 可访问的图标主题；否则会回退到内置图标。
+  默认 `auto`。
 - `simpleFileExplorer.treeProbeChildFolders`：在 editor 树形导航中提前检查文件夹
   是否有可见子文件夹，再决定是否显示展开箭头。默认关闭以获得更好的性能。
 

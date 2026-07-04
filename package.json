@@ -2,7 +2,7 @@
   "name": "workspace-file-explorer",
   "displayName": "Simple File Explorer",
   "description": "A tabbed, high-performance file explorer for Visual Studio Code.",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "publisher": "panjie039",
   "repository": {
     "type": "git",
@@ -13,6 +13,9 @@
     "url": "https://github.com/caticat/file-explorer-vscode-extension/issues"
   },
   "license": "MIT",
+  "extensionKind": [
+    "workspace"
+  ],
   "engines": {
     "vscode": "^1.100.0"
   },
