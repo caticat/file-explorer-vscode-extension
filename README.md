@@ -6,27 +6,23 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/caticat/file-explorer-vscode-extension/ci.yml?branch=master&label=CI)](https://github.com/caticat/file-explorer-vscode-extension/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A Windows Explorer-style file manager inside VS Code, with tabs, tiled panes,
-fast folder browsing, file operations, and Remote SSH support.
+A Windows Explorer-style file manager for VS Code.
 
-Use it when the built-in VS Code Explorer starts to feel like the wrong tool
-for file-manager workflows: expanding large project trees, comparing folders,
-working in independent folder tabs, or navigating with familiar Explorer-style
-selection habits.
+Browse large folders in independent tabs, compare directories with tiled panes,
+use familiar Explorer-style selection, and manage files without fighting the
+built-in project tree.
 
-Thanks for using Simple File Explorer. Feedback, bug reports, and workflow
-suggestions are welcome through the GitHub issue tracker.
+Works in local and Remote SSH workspaces.
 
-Important: use this tool like Windows File Explorer. Common mouse actions,
-selection patterns, and keyboard habits should work naturally, so you do not
-need to memorize a separate command list.
+Designed to feel familiar: common Windows Explorer mouse actions, selection
+patterns, and keyboard habits should work naturally.
 
 ## Highlights
 
 - Tabbed file browsing in the editor area or optional Activity Bar sidebar.
 - Optional tiled panes for comparing folders side by side.
 - Details and Large Icons views with persistent sorting.
-- Fast large-folder browsing with streamed directory reads and virtualized
+- Fast large-folder browsing with incremental loading and virtualized
   rendering.
 - Cancellable recursive filename search that reuses VS Code exclude settings.
 - Windows Explorer-like mouse and keyboard selection.
@@ -41,6 +37,9 @@ Press `Ctrl+Alt+Q` on Windows/Linux or `Cmd+Alt+Q` on macOS.
 Or open the Command Palette and run **Simple File Explorer: Open**.
 
 ## Demo
+
+The first demo shows tabbed browsing and common file operations. The second demo
+shows tiled panes for comparing multiple folders in one editor surface.
 
 ![Simple File Explorer usage demonstration](assets/file-explorer.gif)
 
@@ -86,10 +85,8 @@ editor area and sidebar.
 
 ## Current status
 
-Simple File Explorer is feature-complete for its planned core workflow: a
-Windows Explorer-style file browser inside VS Code with tabs, tiled panes,
-search, file operations, keyboard selection, large-folder performance, and
-Remote SSH support.
+The core workflow is stable for daily use. New versions mainly refine edge
+cases, usability, and platform support.
 
 ## Features
 
@@ -271,6 +268,7 @@ amount of webview state in memory.
   workspace.
 - It does not upload file names, paths, or file contents to any external
   service.
+- No telemetry is collected by this extension.
 - File browsing, search, terminals, watchers, and file operations use local or
   remote workspace file-system APIs provided by VS Code and Node.js.
 - Trash and permanent delete are separate actions.
@@ -284,7 +282,9 @@ Bug reports and workflow suggestions are welcome through GitHub issues. If
 Simple File Explorer helps your daily workflow, a rating on VS Marketplace or
 Open VSX also helps other users decide whether to try it.
 
-## Scope
+Thanks for using Simple File Explorer.
+
+## Attribution and Originality
 
 This project does not copy source code, styles, or assets from
 `Abdulkader-Safi/vscode-file-explorer`. It independently implements a similar
@@ -314,14 +314,15 @@ Codicon artwork has separate attribution in `THIRD_PARTY_NOTICES.md`.
 # 中文说明
 
 Simple File Explorer 是一个运行在 VS Code 中的多页签文件浏览器，操作方式接近
-Windows 资源管理器。它适合在大型项目中按目录浏览和查找文件，避免在 VS Code
-自带的树形 Explorer 中反复展开大量目录。
+Windows 资源管理器。
 
-感谢使用 Simple File Explorer。如果你遇到问题，或对工作流、交互细节有建议，
-欢迎通过 GitHub issue 反馈。
+它适合在大型项目中按目录浏览文件、用平铺 pane 并排对比目录、执行常见文件操作，
+并避免在 VS Code 自带树形 Explorer 中反复展开大量目录。
 
-重要提示：你可以像使用 Windows File Explorer 一样使用这个工具。常见的鼠标
-操作、选择方式和键盘习惯应当自然可用，不需要特意记住额外规则。
+支持本地工作区和 Remote SSH 工作区。
+
+设计目标是尽量贴近 Windows 资源管理器：常见鼠标操作、选择方式和键盘习惯
+应当自然可用。
 
 ## 亮点
 
@@ -341,6 +342,9 @@ Windows/Linux 按 `Ctrl+Alt+Q`，macOS 按 `Cmd+Alt+Q`。
 也可以打开命令面板，执行 **Simple File Explorer: Open**。
 
 ## 演示
+
+第一个演示展示多页签浏览和常见文件操作；第二个演示展示平铺 pane，用于在同一个
+编辑区并排对比多个目录。
 
 ![Simple File Explorer 使用演示](assets/file-explorer.gif)
 
@@ -382,9 +386,7 @@ Simple File Explorer 更接近文件管理器工作流：
 
 ## 当前状态
 
-Simple File Explorer 计划中的核心工作流已经基本完成：在 VS Code 内提供接近
-Windows 资源管理器的多页签文件浏览、平铺 pane、搜索、文件操作、键盘选择、
-大目录性能优化和 Remote SSH 支持。
+核心工作流已可用于日常使用。后续版本主要改进边界情况、易用性和平台支持。
 
 ## 主要功能
 
@@ -531,6 +533,7 @@ webview 上下文，切换到文件编辑器再回来时不会重置树状态；
 
 - Simple File Explorer 运行在当前工作区的 VS Code extension host 中。
 - 插件不会将文件名、路径或文件内容上传到任何外部服务。
+- 插件自身不收集遥测数据。
 - 文件浏览、搜索、终端、目录监听和文件操作使用 VS Code 与 Node.js 提供的
   本地或远程工作区文件系统 API。
 - 删除到回收站和永久删除是两个不同操作。
@@ -543,3 +546,5 @@ webview 上下文，切换到文件编辑器再回来时不会重置树状态；
 欢迎通过 GitHub issues 反馈问题和工作流建议。如果 Simple File Explorer 对你的
 日常工作有帮助，也欢迎在 VS Marketplace 或 Open VSX 上评分，帮助其他用户判断
 是否值得尝试。
+
+感谢使用 Simple File Explorer。

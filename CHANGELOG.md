@@ -1,5 +1,16 @@
 # Change Log
 
+## 0.2.11
+
+- Improved README first-screen messaging with clearer positioning, stable
+  badges, quick start guidance, demo context, and a more reassuring status
+  note for daily use.
+- Added GitHub Actions CI, Dependabot configuration, structured issue
+  templates, and a security policy to make project maintenance and feedback
+  paths clearer.
+- Updated Marketplace metadata with more specific positioning and search
+  keywords for tabs, folder browsing, Remote SSH, and workspace workflows.
+
 ## 0.2.10
 
 - Persisted the shared sort preference so name, modified-time, and size sorting
