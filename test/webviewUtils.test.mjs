@@ -120,6 +120,8 @@ test("directoryNameFromExcludePattern extracts safe directory names", () => {
 });
 
 test("parseIconThemeManifest resolves icon definitions and lowercases lookup keys", () => {
+  const manifestDir = path.resolve("theme-root");
+
   assert.deepEqual(
     parseIconThemeManifest(
       {
@@ -134,14 +136,14 @@ test("parseIconThemeManifest resolves icon definitions and lowercases lookup key
         fileNames: { "README.md": "fileDef" },
         folderNames: { SRC: "folderDef" }
       },
-      "C:\\Theme"
+      manifestDir
     ),
     {
-      file: "C:\\Theme\\icons\\file.svg",
-      folder: "C:\\Theme\\icons\\folder.svg",
-      fileExtensions: { ts: "C:\\Theme\\icons\\ts.svg" },
-      fileNames: { "readme.md": "C:\\Theme\\icons\\file.svg" },
-      folderNames: { src: "C:\\Theme\\icons\\folder.svg" }
+      file: path.resolve(manifestDir, "./icons/file.svg"),
+      folder: path.resolve(manifestDir, "./icons/folder.svg"),
+      fileExtensions: { ts: path.resolve(manifestDir, "./icons/ts.svg") },
+      fileNames: { "readme.md": path.resolve(manifestDir, "./icons/file.svg") },
+      folderNames: { src: path.resolve(manifestDir, "./icons/folder.svg") }
     }
   );
 });
@@ -196,9 +198,13 @@ test("copy naming follows the existing copy suffix style", () => {
 });
 
 test("path containment treats equal paths and descendants as inside", () => {
-  assert.equal(isPathInsideOrEqualPath("C:\\Work\\Project", "C:\\Work\\Project"), true);
-  assert.equal(isPathInsideOrEqualPath("C:\\Work\\Project\\child", "C:\\Work\\Project"), true);
-  assert.equal(isPathInsideOrEqualPath("C:\\Work\\Project2", "C:\\Work\\Project"), false);
+  const root = path.resolve("Work", "Project");
+  const child = path.join(root, "child");
+  const sibling = path.resolve("Work", "Project2");
+
+  assert.equal(isPathInsideOrEqualPath(root, root), true);
+  assert.equal(isPathInsideOrEqualPath(child, root), true);
+  assert.equal(isPathInsideOrEqualPath(sibling, root), false);
 });
 
 test("copyItem can copy a directory into itself using the generated target folder", async () => {
