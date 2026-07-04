@@ -2,7 +2,14 @@ import "./webview.css";
 import { formatSize } from "./webviewFormat";
 import { createNameMatcher } from "./webviewMatcher";
 import { copySelectionStatus, uniqueWatcherPaths } from "./webviewCommandState";
-import { emptyStateMessage, filterItems, nextSortState, sortItemsInPlace } from "./webviewItems";
+import {
+  type ItemSortState,
+  emptyStateMessage,
+  filterItems,
+  nextSortState,
+  normalizeSortState,
+  sortItemsInPlace
+} from "./webviewItems";
 import { paneGridLayout, paneRowSpan } from "./webviewPane";
 import {
   type SelectionState as PureSelectionState,
@@ -109,8 +116,8 @@ interface ExplorerTab {
   preserveFocusAfterReveal?: boolean;
   focusViewportAfterLoad?: boolean;
   pendingRecentLocation?: string;
-  sortKey: "name" | "modified" | "size";
-  sortDirection: "asc" | "desc";
+  sortKey: ItemSortState["sortKey"];
+  sortDirection: ItemSortState["sortDirection"];
   externalNavigationId?: string;
 }
 
@@ -139,6 +146,7 @@ let platform = "linux";
 let viewKind: "editor" | "sidebar" = "editor";
 let preferredViewMode: ExplorerTab["viewMode"] = "list";
 let preferredRecursiveSearch = false;
+let preferredSortState: ItemSortState = { sortKey: "name", sortDirection: "asc" };
 let listColumns: ListColumnPreferences = { modified: true, size: true };
 let iconTheme: IconThemePayload | undefined;
 let restoreWorkspaceSession = true;
@@ -712,6 +720,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
       preferredViewMode =
         message.preferredViewMode === "grid" ? "grid" : "list";
       preferredRecursiveSearch = message.preferredRecursiveSearch === true;
+      preferredSortState = normalizeSortState(message.preferredSortState);
       listColumns = normalizeListColumns(message.listColumns);
       iconTheme = normalizeIconTheme(message.iconTheme);
       recentLocations = normalizeRecentLocations(
@@ -817,6 +826,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
       const tab = tabForRequest(String(message.requestId));
       if (!tab) return;
       tab.loading = false;
+      requestSortMetadata(tab);
       sortItems(tab.items, tab);
       applyLocalFilter(tab);
       updateTreeNodeChildHintFromDirectory(tab);
@@ -918,16 +928,15 @@ function handleHostMessage(message: Record<string, unknown>): void {
       const metadata = message.items as DirectoryItem[];
       const lookup = new Map(metadata.map((item) => [item.path, item]));
       for (const tab of tabs) {
-        for (const item of tab.items) {
-          const value = lookup.get(item.path);
-          if (value) {
-            item.size = value.size;
-            item.modified = value.modified;
-          }
-        }
+        applyMetadata(tab.items, lookup);
+        applyMetadata(tab.filteredItems, lookup);
         if (tab.sortKey !== "name") {
           sortItems(tab.items, tab);
-          applyLocalFilter(tab);
+          if (tab.searchMode) {
+            sortItems(tab.filteredItems, tab);
+          } else {
+            applyLocalFilter(tab);
+          }
         }
       }
       scheduleRender();
@@ -959,6 +968,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
       const tab = tabForSearchRequest(String(message.requestId));
       if (!tab) return;
       tab.searchRequestId = undefined;
+      requestSortMetadata(tab);
       sortItems(tab.filteredItems, tab);
       const suffix = message.limited ? " · result limit reached" : "";
       tab.status = `${Number(message.count).toLocaleString()} matches · ${Number(
@@ -1085,8 +1095,8 @@ function createTabModel(tabPath: string): ExplorerTab {
     selectionAnchorPath: undefined,
     showHidden: false,
     pendingRecentLocation: tabPath,
-    sortKey: "name",
-    sortDirection: "asc"
+    sortKey: preferredSortState.sortKey,
+    sortDirection: preferredSortState.sortDirection
   };
 }
 
@@ -1510,15 +1520,7 @@ function render(): void {
   elements.selectionStatus.textContent =
     tab.selectedPaths.length > 1 ? `${tab.selectedPaths.length.toLocaleString()} selected` : "";
   updateListColumnMenu();
-  for (const header of Array.from(
-    elements.listHeader.querySelectorAll<HTMLButtonElement>("button[data-sort]")
-  )) {
-    const active = header.dataset.sort === tab.sortKey;
-    header.classList.toggle("active", active);
-    header.textContent = `${header.dataset.sort === "name" ? "Name" : header.dataset.sort === "modified" ? "Modified" : "Size"}${
-      active ? (tab.sortDirection === "asc" ? " ↑" : " ↓") : ""
-    }`;
-  }
+  updateListHeaderSortState(elements.listHeader, tab);
   updateRecursiveSearchButton(tab);
 }
 
@@ -2507,7 +2509,10 @@ function updatePaneChrome(tab: ExplorerTab, pane: HTMLElement): void {
   const mainPane = pane.querySelector<HTMLElement>(".pane-main");
   mainPane?.classList.toggle("pane-grid-mode", tab.viewMode === "grid");
   const listHeader = pane.querySelector<HTMLElement>(".pane-list-header");
-  listHeader?.classList.toggle("hidden", tab.viewMode !== "list");
+  if (listHeader) {
+    listHeader.classList.toggle("hidden", tab.viewMode !== "list");
+    updateListHeaderSortState(listHeader, tab);
+  }
   if (previousViewMode && previousViewMode !== tab.viewMode) {
     const items = pane.querySelector<HTMLElement>(".items");
     if (items) {
@@ -2629,6 +2634,18 @@ function createPaneListHeader(tab: ExplorerTab): HTMLElement {
     header.append(buttonElement);
   }
   return header;
+}
+
+function updateListHeaderSortState(headerElement: HTMLElement, tab: ExplorerTab): void {
+  for (const header of Array.from(
+    headerElement.querySelectorAll<HTMLButtonElement>("button[data-sort]")
+  )) {
+    const active = header.dataset.sort === tab.sortKey;
+    header.classList.toggle("active", active);
+    header.textContent = `${header.dataset.sort === "name" ? "Name" : header.dataset.sort === "modified" ? "Modified" : "Size"}${
+      active ? (tab.sortDirection === "asc" ? " ↑" : " ↓") : ""
+    }`;
+  }
 }
 
 function renderVirtualItems(tab: ExplorerTab): void {
@@ -2779,17 +2796,25 @@ function sortItems(items: DirectoryItem[], tab: ExplorerTab): void {
 }
 
 function changeSort(sortKey: ExplorerTab["sortKey"]): void {
-  const tab = activeTab();
-  const next = nextSortState(tab, sortKey);
-  tab.sortKey = next.sortKey;
-  tab.sortDirection = next.sortDirection;
-
-  if (sortKey !== "name") {
-    requestMetadata(tab.items);
+  preferredSortState = nextSortState(preferredSortState, sortKey);
+  for (const tab of tabs) {
+    tab.sortKey = preferredSortState.sortKey;
+    tab.sortDirection = preferredSortState.sortDirection;
+    requestSortMetadata(tab);
+    sortItems(tab.items, tab);
+    if (tab.searchMode) {
+      sortItems(tab.filteredItems, tab);
+    } else {
+      applyLocalFilter(tab);
+    }
   }
-  sortItems(tab.items, tab);
-  applyLocalFilter(tab);
+  vscode.postMessage({ command: "savePreferences", sortState: preferredSortState });
   scheduleRender();
+}
+
+function requestSortMetadata(tab: ExplorerTab): void {
+  if (tab.sortKey === "name") return;
+  requestMetadata(tab.searchMode ? tab.filteredItems : tab.items);
 }
 
 function requestMetadata(items: DirectoryItem[]): void {
@@ -2798,6 +2823,16 @@ function requestMetadata(items: DirectoryItem[]): void {
     const paths = pending.slice(index, index + 100);
     paths.forEach((itemPath) => metadataRequested.add(itemPath));
     vscode.postMessage({ command: "loadMetadata", paths });
+  }
+}
+
+function applyMetadata(items: DirectoryItem[], lookup: Map<string, DirectoryItem>): void {
+  for (const item of items) {
+    const value = lookup.get(item.path);
+    if (value) {
+      item.size = value.size;
+      item.modified = value.modified;
+    }
   }
 }
 

@@ -13,6 +13,18 @@ export interface ItemSortState {
   sortDirection: ItemSortDirection;
 }
 
+export function normalizeSortState(value: unknown): ItemSortState {
+  if (!value || typeof value !== "object") {
+    return { sortKey: "name", sortDirection: "asc" };
+  }
+  const state = value as Partial<ItemSortState>;
+  return {
+    sortKey:
+      state.sortKey === "modified" || state.sortKey === "size" ? state.sortKey : "name",
+    sortDirection: state.sortDirection === "desc" ? "desc" : "asc"
+  };
+}
+
 export function filterItems<T extends { name: string }>(
   items: T[],
   options: { showHidden: boolean; searchQuery: string }

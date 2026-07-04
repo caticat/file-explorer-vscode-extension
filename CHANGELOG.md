@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.2.10
+
+- Persisted the shared sort preference so name, modified-time, and size sorting
+  stay consistent across tabs, tiled panes, and VS Code sessions.
+- Refreshed tiled-pane list headers when sorting changes so every pane shows the
+  active sort column and direction immediately.
+- Reorganized README feature documentation around the current complete workflow
+  and Remote SSH support.
+
 ## 0.2.9
 
 - Declared the extension as a workspace extension for Remote SSH and hid

@@ -41,87 +41,122 @@ editor area and sidebar.
 
 ![Tiled tabs demonstration](assets/file-explorer-tile-tabs.gif)
 
-## Current features
+## Current status
 
-- Starts at the current VS Code workspace folder.
-- Toggles the editor explorer with `Ctrl+Alt+Q` (`Cmd+Alt+Q` on macOS).
-- Opens in the editor area by default.
-- Optional Activity Bar sidebar mode.
-- Toolbar button for switching between editor and sidebar modes.
+Simple File Explorer is feature-complete for its planned core workflow: a
+Windows Explorer-style file browser inside VS Code with tabs, tiled panes,
+search, file operations, keyboard selection, large-folder performance, and
+Remote SSH support.
+
+## Features
+
+### Layout and navigation
+
+- Opens in the editor area by default, with optional Activity Bar sidebar mode.
+- Switches between editor and sidebar locations from the toolbar.
 - Fills the available editor or sidebar surface without extra webview padding.
+- Starts from the current VS Code workspace folder.
+- Supports multi-root workspaces, with one initial tab per root folder when no
+  saved session exists.
+- Restores tab order, current paths, active tab, and tiled-tab mode per
+  workspace when session restoration is enabled.
+- Provides back, forward, up, refresh, breadcrumbs, manual path entry
+  (`Ctrl+L`), and one-click workspace Home navigation.
 - Opens files and folders from the built-in VS Code Explorer context menu.
-- Reveals the active editor tab file in Simple File Explorer from the editor
-  tab context menu.
-- One-click return to the workspace root.
-- In multi-root workspaces, Home returns to the root containing the current path.
-- Multiple independent file tabs.
-- Drag-and-drop tab ordering.
-- Editor-only tiled tabs mode shows all open file tabs as independent panes in
-  one editor surface.
-- Tiled tabs keep per-pane navigation, address bars, search fields, selection,
-  and file operations while sharing display controls.
-- Tiled tabs mode is restored with the workspace session when at least two tabs
-  are open.
-- Sidebar tabs automatically shrink to keep the new-tab button reachable.
-- Sidebar toolbar actions are grouped, with display controls visually separated
-  from navigation and create actions.
-- Compact sidebar layout supports very narrow sidebars, including one-column
-  large-icon browsing and compact details columns.
-- Optional workspace-specific restoration of tab order, paths, and active tab.
-- One initial tab per root folder in multi-root workspaces without saved state.
-- Back, forward, up, refresh, breadcrumbs, and manual path entry (`Ctrl+L`).
-- Address-bar recent and favorite locations menu for quickly returning to
-  important folders in the current workspace.
-- Address-bar star button for adding or removing the current folder as a
-  workspace favorite.
-- Detailed list and large-icon views.
-- Large-icon view expands selected filenames, including multi-selection, while
-  keeping unselected items compact.
-- A shared view-mode preference that persists across tabs and VS Code sessions.
-- Optional editor-only folder tree for navigation, with a collapse-all control
-  and persisted visibility/expanded state.
-- The editor folder tree lazily follows the active folder path from the main
-  file view without expanding sibling folders.
-- Tree folders can be expanded or collapsed from the arrow, by double-clicking,
-  or by pressing `Enter` after the tree was the most recent navigation target.
-- Large-icon view keeps its column layout when the editor folder tree is shown
-  or hidden.
-- Automatically reuses the current VS Code file icon theme when possible, with
-  built-in fallback icons.
-- Streaming directory enumeration and virtualized rendering for large folders.
-- Visible-row metadata loading instead of running `stat` for every file at once.
-- Metadata reads are de-duplicated and concurrency-limited during large-folder
-  browsing.
-- Current-folder filtering and cancellable recursive filename search.
-- Recursive search reuses VS Code `search.exclude` and `files.exclude`
-  directory exclusions when they can be safely interpreted as directory names.
-- Persistent recursive-search mode and basic filename wildcards (`*` and `?`).
-- Windows and Linux path handling.
-- Automatic refresh using debounced, non-recursive watchers for visible tabs.
-- Safe fallback to an existing parent or workspace root when an open directory
-  is deleted.
-- New files open and focus automatically after creation.
-- New file, new folder, rename, move-to-trash, and permanent-delete operations.
-- Multi-selection with `Ctrl` / `Cmd` click, `Shift` click, keyboard navigation,
-  mouse box selection, and `Ctrl+A` / `Cmd+A`.
-- Empty-area context menus can create files or folders, refresh the current
-  folder, open a terminal, copy the current folder path, or paste files.
-- Copy, cut, paste, and empty-area paste from keyboard shortcuts or the context
-  menu, with newly pasted items selected together.
-- Copy, move, trash, and permanent-delete operations show VS Code progress
-  notifications for longer operations.
-- Sortable name, modified-time, and size columns.
-- Right-click menu toggles for the modified-time and size columns.
-- Per-tab hidden dot-file visibility.
-- Context-menu reveal in the operating system file explorer.
-- Context-menu text-copy actions for item names, item paths, workspace-relative
-  item paths, file folder paths, and workspace-relative file folder paths.
-- Context-menu terminal launch from the selected file's containing folder, the
-  selected folder, or the current empty-area folder.
-- Search-result navigation to the containing folder with the item selected.
-- Explorer shortcuts: `/`, `Backspace`/`Alt+Up`, `Alt+Left`, `Alt+Right`, `F5`,
-  `Ctrl+L`, `Enter`, `Space`, `F2`, `Delete`, `Shift+Delete`, `Ctrl+A`, arrow
-  key selection, and incremental filename selection by typing.
+- Reveals the active editor tab file from the editor tab context menu.
+
+### Tabs, panes, and views
+
+- Supports multiple independent file tabs with drag-and-drop tab ordering.
+- Provides editor-only tiled tabs mode, where open tabs become independent panes
+  in one editor surface.
+- Keeps per-pane navigation, address bars, search fields, selection, and file
+  operations in tiled mode while sharing display controls.
+- Automatically keeps sidebar tabs compact so the new-tab button remains
+  reachable.
+- Supports Details and Large Icons views.
+- Persists the shared view mode and shared sort preference across tabs, tiled
+  panes, and VS Code sessions.
+- Sorts by name, modified time, or size, including ascending and descending
+  direction.
+- Lets the modified-time and size columns be shown or hidden from the context
+  menu.
+- Expands selected filenames in Large Icons view while keeping unselected items
+  compact.
+
+### Tree, locations, and icons
+
+- Provides an optional editor-only folder tree with collapse-all, persisted
+  visibility, and persisted expanded state.
+- Lazily follows the active folder path in the tree without expanding sibling
+  folders.
+- Supports tree expand/collapse from the arrow, double-click, or `Enter` when
+  the tree was the most recent navigation target.
+- Keeps Large Icons columns stable when the folder tree is shown or hidden.
+- Provides recent and favorite location menus in the address bar.
+- Lets the current folder be added to or removed from workspace favorites with
+  the address-bar star button.
+- Reuses the current VS Code file icon theme when possible, with built-in
+  Codicon fallbacks.
+
+### Search and performance
+
+- Streams directory entries and virtualizes rendering for large folders.
+- Loads metadata for visible rows first instead of running `stat` for every
+  file at once.
+- De-duplicates and concurrency-limits metadata reads.
+- Supports current-folder filtering and cancellable recursive filename search.
+- Reuses safe directory names from VS Code `search.exclude` and `files.exclude`
+  for recursive-search exclusions.
+- Persists recursive-search mode and supports basic filename wildcards:
+  `*` and `?`.
+- Automatically refreshes visible tabs through debounced, non-recursive
+  watchers.
+- Falls back to an existing parent or workspace root when an open directory is
+  deleted.
+
+### File operations and selection
+
+- Creates files and folders, renames items, moves items to trash, permanently
+  deletes items, and copies, cuts, and pastes files.
+- Opens and focuses newly created files automatically.
+- Selects all newly pasted items together after multi-item paste operations.
+- Shows VS Code progress notifications for longer copy, move, trash, and
+  permanent-delete operations.
+- Supports `Ctrl` / `Cmd` click, `Shift` click, keyboard selection, mouse box
+  selection, and `Ctrl+A` / `Cmd+A`.
+- Supports empty-area context-menu actions for creating files or folders,
+  refreshing, opening a terminal, copying the current folder path, and pasting.
+- Provides context-menu text-copy actions for item names, item paths,
+  workspace-relative item paths, file folder paths, and workspace-relative file
+  folder paths.
+- Opens terminals from a selected file's containing folder, a selected folder,
+  or the current empty-area folder.
+- Navigates from recursive search results to the containing folder with the item
+  selected.
+
+### Remote SSH support
+
+- Declares the extension as a VS Code workspace extension so Remote SSH runs it
+  on the remote workspace host.
+- Applies file browsing, search, watchers, terminals, and file operations to
+  remote workspace files in Remote SSH windows.
+- Hides **Reveal in System File Manager** in remote windows because remote paths
+  cannot reliably be opened in the local operating system file manager.
+- Reuses file icon themes in Remote SSH only when the theme is available to the
+  remote extension host; otherwise the built-in Codicon icons are used.
+
+### Keyboard shortcuts
+
+- Explorer toggle: `Ctrl+Alt+Q` on Windows/Linux, `Cmd+Alt+Q` on macOS.
+- Navigation: `Backspace` / `Alt+Up`, `Alt+Left`, `Alt+Right`, `F5`,
+  `Ctrl+L`.
+- Selection and activation: `Enter`, `Space`, `Ctrl+A` / `Cmd+A`, arrow keys,
+  `Ctrl` focus movement, `Shift` range selection, and incremental filename
+  selection by typing.
+- File operations: `F2`, `Delete`, `Shift+Delete`, `Ctrl+C`, `Ctrl+X`,
+  `Ctrl+V`.
+- Search: `/` focuses the active search box.
 
 ## Command Palette Actions
 
@@ -247,61 +282,86 @@ Windows 资源管理器。它适合在大型项目中按目录浏览和查找文
 模式会显示底部状态栏按钮，并隐藏 Activity Bar 入口；切换到 sidebar 模式后则相反。
 也可以通过工具栏中的位置切换按钮在 editor 和 sidebar 模式之间移动当前浏览器。
 
+## 当前状态
+
+Simple File Explorer 计划中的核心工作流已经基本完成：在 VS Code 内提供接近
+Windows 资源管理器的多页签文件浏览、平铺 pane、搜索、文件操作、键盘选择、
+大目录性能优化和 Remote SSH 支持。
+
 ## 主要功能
 
-- 多页签、前进、后退、向上、工作区首页和手动路径输入。
-- 多根工作区中，首页按钮会返回当前路径所属的工作区根目录。
-- 支持拖动页签调整顺序。
-- editor 模式支持平铺页签视图，可将当前打开的页签同时显示为多个独立 pane。
-- 平铺视图中，每个 pane 保留独立的导航、地址栏、搜索框、选择和文件操作，
-  列表/大图标/隐藏文件等显示控制统一作用于所有 pane。
-- 当至少有两个页签时，平铺视图会随工作区会话一起恢复。
+### 布局和导航
+
+- 默认在 editor 主编辑区打开，也可以切换到 Activity Bar sidebar 模式。
+- 可通过工具栏在 editor 和 sidebar 显示位置之间切换。
 - 会铺满 editor 或 sidebar 可用区域，不保留额外 webview 边距。
+- 默认从当前 VS Code 工作区目录开始。
+- 支持多根工作区；没有保存状态时，会为每个根目录创建一个初始页签。
+- 可按工作区恢复页签顺序、当前路径、活动页签和平铺页签模式。
+- 支持前进、后退、向上、刷新、面包屑、手动路径输入 (`Ctrl+L`) 和工作区首页。
+- 可从 VS Code 自带 Explorer 右键菜单打开文件或目录。
+- 可从编辑器页签右键菜单中将当前文件定位到 Simple File Explorer。
+
+### 页签、平铺和视图
+
+- 支持多个独立文件页签，并可拖动调整页签顺序。
+- editor 模式支持平铺页签视图，将打开的页签同时显示为多个独立 pane。
+- 平铺视图中，每个 pane 保留独立导航、地址栏、搜索框、选择和文件操作，
+  同时共享显示控制。
 - 侧边栏页签会自动压缩宽度，保持新建页签按钮可用。
-- 侧边栏工具栏按导航、新建和显示控制分组，列表/图标等显示选项会单独区分。
-- 更紧凑的侧边栏布局支持很窄的宽度，包括大图标视图一行一个图标和紧凑的
-  详细信息列。
-- 可按工作区恢复页签顺序、当前路径和活动页签。
-- 多根工作区在没有保存状态时，会为每个根目录创建一个初始页签。
-- 地址栏提供最近位置和收藏位置下拉菜单，可快速回到当前工作区中的常用目录。
-- 地址栏星标按钮可将当前目录加入或移出当前工作区收藏。
-- 详细信息和大图标两种视图，并在所有页签和下次启动时继承视图设置。
+- 支持详细信息和大图标两种视图。
+- 视图模式和排序偏好会在页签、平铺 pane 和 VS Code 会话之间共享并保留。
+- 可按名称、修改时间、大小排序，并保留正序/倒序方向。
+- 可通过右键菜单显示或隐藏修改时间和大小列。
 - 大图标视图中，选中的文件会展开显示完整文件名，多选时每个选中项都会展开。
-- editor 模式可开启左侧文件夹树用于导航，支持一键合并，并会保存显示和展开状态。
+
+### 树形导航、位置和图标
+
+- editor 模式可开启左侧文件夹树，支持一键折叠，并保存显示和展开状态。
 - 主文件区切换目录时，左侧文件夹树会懒加载并展开当前路径的祖先链，不会展开旁支目录。
 - 树形目录可以通过箭头、双击，或在最近操作目标为树时按 `Enter` 展开和折叠。
 - editor 模式下切换左侧文件夹树时，大图标视图会保持正确列数。
-- 默认尝试复用当前 VS Code 文件图标主题，失败时回退到内置图标。
-- 大目录流式读取、虚拟滚动和可见区域元数据加载。
+- 地址栏提供最近位置和收藏位置下拉菜单，可快速回到当前工作区中的常用目录。
+- 地址栏星标按钮可将当前目录加入或移出当前工作区收藏。
+- 默认尝试复用当前 VS Code 文件图标主题，失败时回退到内置 Codicon 图标。
+
+### 搜索和性能
+
+- 大目录使用流式读取和虚拟滚动。
+- 优先加载可见区域元数据，不会一次性对所有文件执行 `stat`。
 - 元数据读取会去重并限制并发，降低大目录浏览时的文件系统压力。
-- 当前目录搜索和可取消的递归文件名搜索。
-- 递归搜索会复用 VS Code 的 `search.exclude` 和 `files.exclude` 中可安全识别的目录排除规则。
+- 支持当前目录搜索和可取消的递归文件名搜索。
+- 递归搜索会复用 VS Code `search.exclude` 和 `files.exclude` 中可安全识别的目录排除规则。
 - 递归搜索模式会跨目录、页签和 VS Code 启动保留。
 - 文件名搜索支持基础通配符：`*` 匹配任意字符，`?` 匹配单个字符。
+- 自动刷新当前打开目录，不递归监控整个项目。
+- 当前打开目录被删除时，自动回退到有效父目录或其他工作区根目录。
+
+### 文件操作和选择
+
+- 支持新建文件、新建文件夹、重命名、删除到回收站、永久删除、复制、剪切和粘贴。
 - 新建文件后会自动打开并聚焦。
-- 新建、重命名、删除到回收站、永久删除、复制、剪切和粘贴。
+- 粘贴多个文件后会同时选中新生成的内容。
+- 复制、移动、删除到回收站和永久删除会显示 VS Code 进度提示。
+- 支持 `Ctrl` 点击、`Shift` 点击、鼠标框选、键盘选择和 `Ctrl+A` 全选。
+- 支持方向键移动焦点、`Space` 选择、`Ctrl`/`Shift` 配合键盘进行多选和范围选择。
 - 空白区域右键菜单可在当前目录中新建文件或文件夹、刷新当前目录、打开终端、
   复制当前目录路径或粘贴文件。
-- 复制、移动、删除到回收站和永久删除会显示 VS Code 进度提示。
-- 支持 `Ctrl` 点击、`Shift` 点击、鼠标框选和 `Ctrl+A` 全选。
-- 支持方向键移动焦点、`Space` 选择、`Ctrl`/`Shift` 配合键盘进行多选和范围选择。
-- 支持右键菜单复制、剪切、粘贴、重命名、删除，以及空白区域粘贴；粘贴多个文件后会
-  同时选中新生成的内容。
 - 右键菜单支持复制名称、路径、工作区相对路径、文件所在文件夹路径，以及文件所在
   文件夹的工作区相对路径，并写入 VS Code 文本剪贴板。
 - 右键菜单支持在当前位置打开终端；文件会使用所在目录，文件夹会使用自身目录，
   空白区域会使用当前浏览目录。
-- 可从编辑器页签右键菜单中将当前文件定位到 Simple File Explorer。
-- 可通过工具栏按钮在 editor 和 sidebar 显示模式之间快速切换。
-- 按名称/修改时间/大小排序、隐藏点文件切换。
-- 可通过右键菜单显示或隐藏修改时间和大小列。
-- 自动刷新当前打开目录，不递归监控整个项目。
-- 当前打开目录被删除时，自动回退到有效父目录或其他工作区根目录。
-- 支持 Windows 和 Linux；macOS 理论兼容但尚未正式测试。
-- 支持 Remote SSH 工作区。扩展会运行在远程 workspace host 上，因此浏览和文件
-  操作会作用于远程文件；远程窗口中会隐藏 **Reveal in System File Manager**，
-  因为远程路径无法可靠地在本地系统文件管理器中打开。文件图标主题只有在远程
-  extension host 也可访问时才能复用，否则会回退到内置 Codicon 图标。
+- 递归搜索结果可以跳转到所在目录并选中目标项。
+
+### Remote SSH 支持
+
+- 扩展声明为 VS Code workspace extension，因此 Remote SSH 窗口中会运行在远程
+  workspace host 上。
+- 在 Remote SSH 中，文件浏览、搜索、目录监听、终端和文件操作都作用于远程工作区文件。
+- 远程窗口中会隐藏 **Reveal in System File Manager**，因为远程路径无法可靠地在
+  本地系统文件管理器中打开。
+- 文件图标主题只有在远程 extension host 也可访问时才能复用，否则会回退到内置
+  Codicon 图标。
 
 ## 常用快捷键
 

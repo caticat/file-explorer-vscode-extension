@@ -14,6 +14,7 @@ import {
   createNameMatcher,
   directoryNameFromExcludePattern
 } from "./extensionSearch";
+import { normalizeSortState } from "./webviewItems";
 
 interface DirectoryItem {
   name: string;
@@ -452,6 +453,9 @@ async function handleMessage(
         if (isListColumnPreferences(message.listColumns)) {
           await context.globalState.update("preferredListColumns", message.listColumns);
         }
+        if (message.sortState) {
+          await context.globalState.update("preferredSortState", normalizeSortState(message.sortState));
+        }
         if (typeof message.treeVisible === "boolean") {
           await context.globalState.update("preferredTreeVisible", message.treeVisible);
         }
@@ -699,6 +703,7 @@ async function sendInitialState(
       "preferredListColumns",
       { modified: true, size: true }
     ),
+    preferredSortState: normalizeSortState(context.globalState.get("preferredSortState")),
     iconTheme: await loadIconTheme(panel.webview),
     restoreWorkspaceSession,
     workspaceSession,

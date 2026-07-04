@@ -24,6 +24,7 @@ import {
   emptyStateMessage,
   filterItems,
   nextSortState,
+  normalizeSortState,
   sortItemsInPlace
 } from "../src/webviewItems.ts";
 import { createNameMatcher } from "../src/webviewMatcher.ts";
@@ -464,6 +465,18 @@ test("nextSortState toggles existing key and defaults new keys", () => {
     nextSortState({ sortKey: "modified", sortDirection: "desc" }, "name"),
     { sortKey: "name", sortDirection: "asc" }
   );
+});
+
+test("normalizeSortState accepts only supported sort preferences", () => {
+  assert.deepEqual(normalizeSortState(undefined), { sortKey: "name", sortDirection: "asc" });
+  assert.deepEqual(normalizeSortState({ sortKey: "modified", sortDirection: "desc" }), {
+    sortKey: "modified",
+    sortDirection: "desc"
+  });
+  assert.deepEqual(normalizeSortState({ sortKey: "bad", sortDirection: "sideways" }), {
+    sortKey: "name",
+    sortDirection: "asc"
+  });
 });
 
 test("workspacePathForCurrentPath picks the longest containing root", () => {
