@@ -2,6 +2,8 @@
 
 ## 0.2.11
 
+- Restored the folder selection when navigating up so the parent folder view
+  highlights the folder that was just exited.
 - Improved README first-screen messaging with clearer positioning, stable
   badges, quick start guidance, demo context, and a more reassuring status
   note for daily use.

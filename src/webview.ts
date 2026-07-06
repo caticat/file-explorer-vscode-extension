@@ -1300,7 +1300,7 @@ function navigateUp(): void {
 function navigateTabUp(tab: ExplorerTab): void {
   const parent = dirname(tab.path);
   if (parent !== tab.path) {
-    navigateTab(tab, parent);
+    navigateTab(tab, parent, true, tab.path);
   }
 }
 
