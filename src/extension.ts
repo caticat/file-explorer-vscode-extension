@@ -15,6 +15,7 @@ import {
   directoryNameFromExcludePattern
 } from "./extensionSearch";
 import { normalizeSortState } from "./webviewItems";
+import { isVirtualDrivesPath, VIRTUAL_DRIVES_PATH } from "./webviewVirtualDrives";
 
 interface DirectoryItem {
   name: string;
@@ -42,6 +43,10 @@ const FAVORITE_LOCATIONS_KEY = "favoriteLocations.v1";
 const MAX_SAVED_TABS = 50;
 const MAX_RECENT_LOCATIONS = 15;
 const MAX_FAVORITE_LOCATIONS = 10;
+const DRIVE_PROBE_TIMEOUT_MS = 750;
+const DRIVE_ROOTS_CACHE_MS = 10_000;
+
+let cachedDriveRoots: { expiresAt: number; items: DirectoryItem[] } | undefined;
 
 interface WorkspaceSession {
   version: 1;
@@ -1045,6 +1050,11 @@ async function readDirectoryWithRecovery(
   requestId: string,
   requestedPath: string
 ): Promise<void> {
+  if (isVirtualDrivesPath(requestedPath)) {
+    await readWindowsDrivesDirectory(panel, requestId);
+    return;
+  }
+
   try {
     await streamDirectory(panel, requestId, requestedPath);
   } catch (error) {
@@ -1247,6 +1257,88 @@ function runQueuedMetadataStats(): void {
   }
 }
 
+async function readWindowsDrivesDirectory(
+  panel: ExplorerWebviewHost,
+  requestId: string
+): Promise<void> {
+  const controller = beginRequest(requestId);
+  try {
+    await panel.webview.postMessage({
+      command: "directoryStart",
+      requestId,
+      path: VIRTUAL_DRIVES_PATH
+    });
+
+    const items = process.platform === "win32" ? await availableWindowsDriveRoots() : [];
+    if (controller.signal.aborted) return;
+
+    if (items.length > 0) {
+      await panel.webview.postMessage({
+        command: "directoryBatch",
+        requestId,
+        items
+      });
+    }
+
+    if (!controller.signal.aborted) {
+      await panel.webview.postMessage({
+        command: "directoryComplete",
+        requestId,
+        count: items.length
+      });
+    }
+  } finally {
+    finishRequest(requestId, controller);
+  }
+}
+
+async function availableWindowsDriveRoots(): Promise<DirectoryItem[]> {
+  const now = Date.now();
+  if (cachedDriveRoots && cachedDriveRoots.expiresAt > now) {
+    return cachedDriveRoots.items;
+  }
+
+  const roots = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => `${letter}:\\`);
+  const probes = await Promise.all(roots.map(probeWindowsDriveRoot));
+  const items = probes.filter((item): item is DirectoryItem => item !== undefined);
+  cachedDriveRoots = {
+    expiresAt: now + DRIVE_ROOTS_CACHE_MS,
+    items
+  };
+  return items;
+}
+
+async function probeWindowsDriveRoot(rootPath: string): Promise<DirectoryItem | undefined> {
+  try {
+    const stat = await withTimeout(fs.promises.stat(rootPath), DRIVE_PROBE_TIMEOUT_MS);
+    if (!stat?.isDirectory()) return undefined;
+    return {
+      name: rootPath.replace(/\\$/, ""),
+      path: rootPath,
+      isDirectory: true,
+      isSymbolicLink: false
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | undefined> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(undefined), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
 async function statMetadata(itemPath: string): Promise<{ path: string; size?: number; modified?: number }> {
   try {
     const stat = await fs.promises.stat(itemPath);
@@ -1391,7 +1483,11 @@ function searchIgnoredDirectories(): Set<string> {
 }
 
 function updateDirectoryWatchers(panel: ExplorerWebviewHost, paths: string[]): void {
-  const wanted = new Set(paths.map((item) => path.resolve(item)));
+  const wanted = new Set(
+    paths
+      .filter((item) => !isVirtualDrivesPath(item))
+      .map((item) => path.resolve(item))
+  );
 
   for (const [watchedPath, watcher] of directoryWatchers) {
     if (!wanted.has(watchedPath)) {

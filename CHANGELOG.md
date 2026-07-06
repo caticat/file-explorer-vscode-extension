@@ -4,6 +4,8 @@
 
 - Restored the folder selection when navigating up so the parent folder view
   highlights the folder that was just exited.
+- Added a Windows-only virtual **This PC** level above drive roots so navigating
+  up from `C:\` or another drive root shows the available drives.
 - Improved README first-screen messaging with clearer positioning, stable
   badges, quick start guidance, demo context, and a more reassuring status
   note for daily use.
@@ -12,6 +14,18 @@
   paths clearer.
 - Updated Marketplace metadata with more specific positioning and search
   keywords for tabs, folder browsing, Remote SSH, and workspace workflows.
+
+中文：
+
+- 向上返回父目录时会恢复选中刚刚退出的文件夹，避免丢失当前位置。
+- 在 Windows 中为盘符根目录上方增加虚拟的 **This PC** 层级，从 `C:\`
+  等盘符根目录继续向上时会显示可用盘符。
+- 优化 README 首屏说明，使用更清晰的定位、稳定的徽章、快速开始指引、
+  演示说明，以及更适合日常使用的状态说明。
+- 增加 GitHub Actions CI、Dependabot、结构化 issue 模板和安全策略，让项目
+  维护和反馈路径更清晰。
+- 更新 Marketplace 元数据，补充更具体的 tabs、文件夹浏览、Remote SSH 和
+  工作区流程相关定位与搜索关键词。
 
 ## 0.2.10
 

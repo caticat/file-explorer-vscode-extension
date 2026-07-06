@@ -80,6 +80,11 @@ import {
   workspacePathForCurrentPath
 } from "../src/webviewWorkspace.ts";
 import {
+  isVirtualDrivesPath,
+  isWindowsDriveRoot,
+  VIRTUAL_DRIVES_PATH
+} from "../src/webviewVirtualDrives.ts";
+import {
   metadataPathsToRequest,
   revealScrollTop,
   virtualListLayout,
@@ -169,6 +174,15 @@ test("webview path helpers handle Windows paths", () => {
     { label: "Users", path: "C:\\Users" },
     { label: "pan", path: "C:\\Users\\pan" }
   ]);
+});
+
+test("virtual drive helpers identify only the Windows drives level and drive roots", () => {
+  assert.equal(isVirtualDrivesPath(VIRTUAL_DRIVES_PATH), true);
+  assert.equal(isVirtualDrivesPath("C:\\"), false);
+  assert.equal(isWindowsDriveRoot("C:\\"), true);
+  assert.equal(isWindowsDriveRoot("c:/"), true);
+  assert.equal(isWindowsDriveRoot("C:\\Users"), false);
+  assert.equal(isWindowsDriveRoot("/"), false);
 });
 
 test("webview path helpers handle POSIX paths", () => {

@@ -63,6 +63,11 @@ import {
   workspacePathForCurrentPath
 } from "./webviewWorkspace";
 import {
+  isVirtualDrivesPath,
+  isWindowsDriveRoot,
+  VIRTUAL_DRIVES_PATH
+} from "./webviewVirtualDrives";
+import {
   metadataPathsToRequest,
   revealScrollTop,
   virtualListLayout,
@@ -488,27 +493,37 @@ elements.up.addEventListener("click", navigateUp);
 elements.workspaceHome.addEventListener("click", () =>
   navigate(getWorkspacePath(activeTab().path))
 );
-elements.refresh.addEventListener("click", () => loadDirectory(activeTab(), false));
+elements.refresh.addEventListener("click", () => {
+  if (isVirtualDrivesPath(activeTab().path)) return;
+  loadDirectory(activeTab(), false);
+});
 elements.toggleTree.addEventListener("click", toggleTreePane);
 elements.collapseTree.addEventListener("click", collapseTreePane);
-elements.newFile.addEventListener("click", () =>
-  vscode.postMessage({ command: "createFile", path: activeTab().path })
-);
-elements.newFolder.addEventListener("click", () =>
-  vscode.postMessage({ command: "createFolder", path: activeTab().path })
-);
+elements.newFile.addEventListener("click", () => {
+  if (isVirtualDrivesPath(activeTab().path)) return;
+  vscode.postMessage({ command: "createFile", path: activeTab().path });
+});
+elements.newFolder.addEventListener("click", () => {
+  if (isVirtualDrivesPath(activeTab().path)) return;
+  vscode.postMessage({ command: "createFolder", path: activeTab().path });
+});
 elements.sidebarBack.addEventListener("click", () => moveHistory(-1));
 elements.sidebarUp.addEventListener("click", navigateUp);
 elements.sidebarWorkspaceHome.addEventListener("click", () =>
   navigate(getWorkspacePath(activeTab().path))
 );
-elements.sidebarRefresh.addEventListener("click", () => loadDirectory(activeTab(), false));
-elements.sidebarNewFile.addEventListener("click", () =>
-  vscode.postMessage({ command: "createFile", path: activeTab().path })
-);
-elements.sidebarNewFolder.addEventListener("click", () =>
-  vscode.postMessage({ command: "createFolder", path: activeTab().path })
-);
+elements.sidebarRefresh.addEventListener("click", () => {
+  if (isVirtualDrivesPath(activeTab().path)) return;
+  loadDirectory(activeTab(), false);
+});
+elements.sidebarNewFile.addEventListener("click", () => {
+  if (isVirtualDrivesPath(activeTab().path)) return;
+  vscode.postMessage({ command: "createFile", path: activeTab().path });
+});
+elements.sidebarNewFolder.addEventListener("click", () => {
+  if (isVirtualDrivesPath(activeTab().path)) return;
+  vscode.postMessage({ command: "createFolder", path: activeTab().path });
+});
 elements.address.addEventListener("click", (event) => {
   if (event.target === elements.address) {
     beginAddressEdit();
@@ -532,6 +547,7 @@ elements.sidebarToggleHidden.addEventListener("click", () => toggleHiddenFiles()
 elements.searchInput.addEventListener("input", debounce(runSearch, 180));
 bindSearchInputInteractions(elements.searchInput, activeTab);
 elements.recursiveSearch.addEventListener("click", () => {
+  if (isVirtualDrivesPath(activeTab().path)) return;
   preferredRecursiveSearch = !preferredRecursiveSearch;
   for (const tab of tabs) {
     tab.recursiveSearch = preferredRecursiveSearch;
@@ -792,7 +808,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
       const tab = tabForRequest(String(message.requestId));
       if (!tab) return;
       tab.path = String(message.path);
-      tab.title = basename(tab.path) || tab.path;
+      tab.title = displayPathName(tab.path);
       tab.items = [];
       tab.filteredItems = [];
       tab.loading = true;
@@ -843,7 +859,9 @@ function handleHostMessage(message: Record<string, unknown>): void {
       tab.status = `${Number(message.count).toLocaleString()} items`;
       tab.requestId = undefined;
       if (tab.pendingRecentLocation) {
-        rememberRecentLocation(tab.path);
+        if (!isVirtualDrivesPath(tab.pendingRecentLocation)) {
+          rememberRecentLocation(tab.path);
+        }
         tab.pendingRecentLocation = undefined;
       }
       scheduleRender();
@@ -863,7 +881,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
       const fallbackPath = String(message.fallbackPath);
       if (normalizeForComparison(fallbackPath) !== normalizeForComparison(tab.path)) {
         tab.path = fallbackPath;
-        tab.title = basename(fallbackPath) || fallbackPath;
+        tab.title = displayPathName(fallbackPath);
         tab.history = [fallbackPath];
         tab.historyIndex = 0;
         tab.scrollTop = 0;
@@ -1077,7 +1095,7 @@ function createTabModel(tabPath: string): ExplorerTab {
   return {
     id: randomId(),
     path: tabPath,
-    title: basename(tabPath) || tabPath,
+    title: displayPathName(tabPath),
     items: [],
     filteredItems: [],
     history: [tabPath],
@@ -1298,6 +1316,13 @@ function navigateUp(): void {
 }
 
 function navigateTabUp(tab: ExplorerTab): void {
+  if (isVirtualDrivesPath(tab.path)) {
+    return;
+  }
+  if (platform === "win32" && isWindowsDriveRoot(tab.path)) {
+    navigateTab(tab, VIRTUAL_DRIVES_PATH, true, normalizeDriveRootPath(tab.path));
+    return;
+  }
   const parent = dirname(tab.path);
   if (parent !== tab.path) {
     navigateTab(tab, parent, true, tab.path);
@@ -1339,7 +1364,7 @@ function runSearchForTab(tab: ExplorerTab, query: string): void {
     return;
   }
 
-  if (!tab.recursiveSearch) {
+  if (!tab.recursiveSearch || isVirtualDrivesPath(tab.path)) {
     tab.searchMode = false;
     applyLocalFilter(tab);
     tab.status = `${tab.filteredItems.length.toLocaleString()} matches`;
@@ -1396,7 +1421,7 @@ function validateAndNavigate(targetPath: string): void {
 function beginAddressEdit(): void {
   elements.address.classList.add("hidden");
   elements.addressInput.classList.remove("hidden");
-  elements.addressInput.value = activeTab().path;
+  elements.addressInput.value = isVirtualDrivesPath(activeTab().path) ? "" : activeTab().path;
   elements.addressInput.focus();
   elements.addressInput.select();
 }
@@ -1606,6 +1631,11 @@ function clearTabDragStyles(): void {
 }
 
 function renderAddress(tab: ExplorerTab): void {
+  if (isVirtualDrivesPath(tab.path)) {
+    elements.address.replaceChildren(createVirtualDrivesBreadcrumb());
+    return;
+  }
+
   const parts = splitPath(tab.path);
   const nodes: Node[] = [];
 
@@ -1629,15 +1659,24 @@ function renderAddress(tab: ExplorerTab): void {
 }
 
 function renderToolbar(tab: ExplorerTab): void {
+  const virtualDrives = isVirtualDrivesPath(tab.path);
   elements.back.disabled = tab.historyIndex <= 0;
   elements.forward.disabled = tab.historyIndex >= tab.history.length - 1;
-  elements.up.disabled = dirname(tab.path) === tab.path;
+  elements.up.disabled = virtualDrives || dirname(tab.path) === tab.path;
   elements.workspaceHome.disabled = !workspaceRoots.length;
+  elements.refresh.disabled = virtualDrives;
+  elements.newFile.disabled = virtualDrives;
+  elements.newFolder.disabled = virtualDrives;
+  elements.recursiveSearch.disabled = virtualDrives;
   updateFavoriteButton(elements.favoriteLocation, tab);
+  elements.favoriteLocation.disabled = virtualDrives;
   elements.recentLocations.disabled = recentLocationOptions(tab).length === 0 && favoriteLocationOptions().length === 0;
   elements.sidebarBack.disabled = tab.historyIndex <= 0;
-  elements.sidebarUp.disabled = dirname(tab.path) === tab.path;
+  elements.sidebarUp.disabled = virtualDrives || dirname(tab.path) === tab.path;
   elements.sidebarWorkspaceHome.disabled = !workspaceRoots.length;
+  elements.sidebarRefresh.disabled = virtualDrives;
+  elements.sidebarNewFile.disabled = virtualDrives;
+  elements.sidebarNewFolder.disabled = virtualDrives;
 }
 
 function recentLocationOptions(tab: ExplorerTab): string[] {
@@ -1666,6 +1705,7 @@ function favoriteLocationOptions(): string[] {
 }
 
 function toggleFavoriteLocation(tab: ExplorerTab): void {
+  if (isVirtualDrivesPath(tab.path)) return;
   const favorited = isFavoriteLocation(favoriteLocations, tab.path, normalizeForComparison);
   favoriteLocations = favorited
     ? removeFavoriteLocation(favoriteLocations, tab.path, normalizeForComparison)
@@ -1697,6 +1737,13 @@ function saveFavoriteLocations(): void {
 }
 
 function updateFavoriteButton(buttonElement: HTMLButtonElement, tab: ExplorerTab): void {
+  if (isVirtualDrivesPath(tab.path)) {
+    buttonElement.classList.remove("active");
+    buttonElement.title = "Virtual locations cannot be added to favorites";
+    buttonElement.setAttribute("aria-label", buttonElement.title);
+    buttonElement.setAttribute("aria-pressed", "false");
+    return;
+  }
   const favorited = isFavoriteLocation(favoriteLocations, tab.path, normalizeForComparison);
   buttonElement.classList.toggle("active", favorited);
   buttonElement.title = favorited ? "Remove from favorites" : "Add to favorites";
@@ -2313,15 +2360,18 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
     }, false, false, "home"),
     paneIconButton("Refresh", "M13 5V2.5M13 2.5h-2.5M13 2.5A6 6 0 1 0 14 9", () => {
       focusTab(tab.id);
+      if (isVirtualDrivesPath(tab.path)) return;
       loadDirectory(tab, false);
     }, false, false, "refresh"),
     paneActionSeparator(),
     paneIconButton("New file", "M4 1.5h5l3 3V14H4V1.5ZM9 1.5v3h3M8 7v4M6 9h4", () => {
       focusTab(tab.id);
+      if (isVirtualDrivesPath(tab.path)) return;
       vscode.postMessage({ command: "createFile", path: tab.path });
     }, false, false, "newFile"),
     paneIconButton("New folder", "M1.5 4h5l1.5 2H14v7H1.5V4ZM8 8v3M6.5 9.5h3", () => {
       focusTab(tab.id);
+      if (isVirtualDrivesPath(tab.path)) return;
       vscode.postMessage({ command: "createFolder", path: tab.path });
     }, false, false, "newFolder")
   );
@@ -2415,6 +2465,7 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
   recursive.innerHTML = toolbarIcon("M2 3.5h5l1.5 2H14v7H2v-9ZM6 8h5M9 6l2 2-2 2");
   recursive.addEventListener("click", () => {
     focusTab(tab.id);
+    if (isVirtualDrivesPath(tab.path)) return;
     tab.recursiveSearch = !tab.recursiveSearch;
     if (tab.searchQuery) {
       runSearchForTab(tab, tab.searchQuery);
@@ -2469,6 +2520,7 @@ function createPaneElement(tab: ExplorerTab): HTMLElement {
 }
 
 function updatePaneChrome(tab: ExplorerTab, pane: HTMLElement): void {
+  const virtualDrives = isVirtualDrivesPath(tab.path);
   const previousViewMode = pane.dataset.viewMode;
   const previousPath = pane.dataset.path;
   pane.dataset.viewMode = tab.viewMode;
@@ -2487,6 +2539,7 @@ function updatePaneChrome(tab: ExplorerTab, pane: HTMLElement): void {
   const favoriteButton = pane.querySelector<HTMLButtonElement>("[data-role='favoriteLocation']");
   if (favoriteButton) {
     updateFavoriteButton(favoriteButton, tab);
+    favoriteButton.disabled = virtualDrives;
   }
   const recentButton = pane.querySelector<HTMLButtonElement>("[data-role='recentLocations']");
   if (recentButton) {
@@ -2501,11 +2554,15 @@ function updatePaneChrome(tab: ExplorerTab, pane: HTMLElement): void {
     recursive.classList.toggle("active", tab.recursiveSearch);
     recursive.title = tab.recursiveSearch ? "Search subfolders: on" : "Search subfolders: off";
     recursive.setAttribute("aria-pressed", String(tab.recursiveSearch));
+    recursive.disabled = virtualDrives;
   }
   setPaneButtonDisabled(pane, "back", tab.historyIndex <= 0);
   setPaneButtonDisabled(pane, "forward", tab.historyIndex >= tab.history.length - 1);
-  setPaneButtonDisabled(pane, "up", dirname(tab.path) === tab.path);
+  setPaneButtonDisabled(pane, "up", virtualDrives || dirname(tab.path) === tab.path);
   setPaneButtonDisabled(pane, "home", !workspaceRoots.length);
+  setPaneButtonDisabled(pane, "refresh", virtualDrives);
+  setPaneButtonDisabled(pane, "newFile", virtualDrives);
+  setPaneButtonDisabled(pane, "newFolder", virtualDrives);
   const mainPane = pane.querySelector<HTMLElement>(".pane-main");
   mainPane?.classList.toggle("pane-grid-mode", tab.viewMode === "grid");
   const listHeader = pane.querySelector<HTMLElement>(".pane-list-header");
@@ -2566,6 +2623,10 @@ function paneRenderElements(pane: HTMLElement): PaneRenderElements | undefined {
 }
 
 function createAddressNodes(tab: ExplorerTab): Node[] {
+  if (isVirtualDrivesPath(tab.path)) {
+    return [createVirtualDrivesBreadcrumb()];
+  }
+
   const parts = splitPath(tab.path);
   const nodes: Node[] = [];
   for (let index = 0; index < parts.length; index += 1) {
@@ -2587,6 +2648,15 @@ function createAddressNodes(tab: ExplorerTab): Node[] {
     nodes.push(buttonElement);
   }
   return nodes;
+}
+
+function createVirtualDrivesBreadcrumb(): HTMLElement {
+  const buttonElement = document.createElement("button");
+  buttonElement.className = "breadcrumb";
+  buttonElement.textContent = "This PC";
+  buttonElement.title = "Available drives";
+  buttonElement.disabled = true;
+  return buttonElement;
 }
 
 function paneIconButton(
@@ -2694,7 +2764,9 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
     target.items.replaceChildren(...visible.map((item) => createItemElement(item, tab)));
   }
 
-  const needsMetadata = metadataPathsToRequest(visible, metadataRequested);
+  const needsMetadata = isVirtualDrivesPath(tab.path)
+    ? []
+    : metadataPathsToRequest(visible, metadataRequested);
   if (needsMetadata.length > 0) {
     needsMetadata.forEach((itemPath) => metadataRequested.add(itemPath));
     vscode.postMessage({ command: "loadMetadata", paths: needsMetadata });
@@ -2702,11 +2774,13 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
 
   const showEmpty = !tab.loading && data.length === 0;
   target.empty.classList.toggle("hidden", !showEmpty);
-  target.empty.textContent = emptyStateMessage(tab.items, {
-    showHidden: tab.showHidden,
-    searchQuery: tab.searchQuery,
-    recursiveSearch: tab.recursiveSearch
-  });
+  target.empty.textContent = isVirtualDrivesPath(tab.path)
+    ? "No available drives."
+    : emptyStateMessage(tab.items, {
+        showHidden: tab.showHidden,
+        searchQuery: tab.searchQuery,
+        recursiveSearch: tab.recursiveSearch
+      });
 }
 
 function listRowHeight(): number {
@@ -2813,7 +2887,7 @@ function changeSort(sortKey: ExplorerTab["sortKey"]): void {
 }
 
 function requestSortMetadata(tab: ExplorerTab): void {
-  if (tab.sortKey === "name") return;
+  if (tab.sortKey === "name" || isVirtualDrivesPath(tab.path)) return;
   requestMetadata(tab.searchMode ? tab.filteredItems : tab.items);
 }
 
@@ -2871,6 +2945,15 @@ function dirname(value: string): string {
 
 function basename(value: string): string {
   return basenameForPlatform(value);
+}
+
+function displayPathName(value: string): string {
+  return isVirtualDrivesPath(value) ? "This PC" : basename(value) || value;
+}
+
+function normalizeDriveRootPath(value: string): string {
+  const drive = value.slice(0, 2).toLocaleUpperCase();
+  return `${drive}\\`;
 }
 
 function createFileIcon(item: DirectoryItem): Element {
@@ -3030,23 +3113,27 @@ function showContextMenu(
   allowShowInExplorer: boolean
 ): void {
   contextMenuItem = item;
+  const virtualDrives = isVirtualDrivesPath(activeTab().path);
   const itemMenu = Boolean(item);
-  const searchResultItem = itemMenu && allowShowInExplorer;
-  elements.newFileMenu.classList.toggle("hidden", itemMenu);
-  elements.newFolderMenu.classList.toggle("hidden", itemMenu);
-  elements.refreshMenu.classList.toggle("hidden", itemMenu);
-  elements.revealSystem.classList.toggle("hidden", !itemMenu || !revealInSystemAvailable);
-  elements.showInExplorer.classList.toggle("hidden", !itemMenu || !allowShowInExplorer);
+  const searchResultItem = itemMenu && allowShowInExplorer && !virtualDrives;
+  elements.newFileMenu.classList.toggle("hidden", itemMenu || virtualDrives);
+  elements.newFolderMenu.classList.toggle("hidden", itemMenu || virtualDrives);
+  elements.refreshMenu.classList.toggle("hidden", itemMenu || virtualDrives);
+  elements.revealSystem.classList.toggle("hidden", virtualDrives || !itemMenu || !revealInSystemAvailable);
+  elements.showInExplorer.classList.toggle("hidden", virtualDrives || !itemMenu || !allowShowInExplorer);
+  elements.openTerminalHere.classList.toggle("hidden", virtualDrives);
   elements.copyName.classList.toggle("hidden", !itemMenu);
-  elements.copyDirectoryPath.classList.toggle("hidden", !itemMenu || item?.isDirectory === true);
-  elements.copyRelativeDirectoryPath.classList.toggle("hidden", !itemMenu || item?.isDirectory === true);
-  elements.renameItem.classList.toggle("hidden", !itemMenu);
-  elements.copyItems.classList.toggle("hidden", !itemMenu);
-  elements.cutItems.classList.toggle("hidden", !itemMenu);
-  elements.deleteItems.classList.toggle("hidden", !itemMenu);
-  elements.pasteItems.classList.toggle("hidden", searchResultItem);
-  elements.renameItem.disabled = !itemMenu || activeTab().selectedPaths.length !== 1;
+  elements.copyDirectoryPath.classList.toggle("hidden", virtualDrives || !itemMenu || item?.isDirectory === true);
+  elements.copyRelativeDirectoryPath.classList.toggle("hidden", virtualDrives || !itemMenu || item?.isDirectory === true);
+  elements.renameItem.classList.toggle("hidden", virtualDrives || !itemMenu);
+  elements.copyItems.classList.toggle("hidden", virtualDrives || !itemMenu);
+  elements.cutItems.classList.toggle("hidden", virtualDrives || !itemMenu);
+  elements.deleteItems.classList.toggle("hidden", virtualDrives || !itemMenu);
+  elements.pasteItems.classList.toggle("hidden", virtualDrives || searchResultItem);
+  elements.renameItem.disabled = virtualDrives || !itemMenu || activeTab().selectedPaths.length !== 1;
   elements.pasteItems.disabled = clipboardPaths.length === 0;
+  elements.copyPath.classList.toggle("hidden", virtualDrives && !itemMenu);
+  elements.copyRelativePath.classList.toggle("hidden", virtualDrives);
   elements.copyPath.textContent = itemMenu ? "Copy Path" : "Copy Current Folder Path";
   elements.copyRelativePath.textContent = itemMenu ? "Copy Relative Path" : "Copy Current Folder Relative Path";
   const showListColumnOptions = activeTab().viewMode === "list";
@@ -3212,6 +3299,7 @@ function copyDirectoryPath(relative: boolean): void {
 }
 
 function openTerminalHere(): void {
+  if (isVirtualDrivesPath(activeTab().path)) return;
   vscode.postMessage({
     command: "openTerminalHere",
     path: contextMenuDirectoryPath()
@@ -3543,6 +3631,7 @@ function openSelectedItem(): void {
 }
 
 function renameSelection(): void {
+  if (isVirtualDrivesPath(activeTab().path)) return;
   const paths = selectedPaths();
   if (paths.length === 1) {
     vscode.postMessage({ command: "renameItem", path: paths[0] });
@@ -3551,6 +3640,7 @@ function renameSelection(): void {
 }
 
 function deleteSelection(permanent = false): void {
+  if (isVirtualDrivesPath(activeTab().path)) return;
   const paths = selectedPaths();
   if (paths.length) {
     vscode.postMessage({ command: "deleteItems", paths, permanent });
@@ -3559,6 +3649,7 @@ function deleteSelection(permanent = false): void {
 }
 
 function copySelection(cut: boolean): void {
+  if (isVirtualDrivesPath(activeTab().path)) return;
   const paths = selectedPaths();
   if (!paths.length) return;
   clipboardPaths = paths;
@@ -3569,6 +3660,7 @@ function copySelection(cut: boolean): void {
 }
 
 function pasteClipboard(): void {
+  if (isVirtualDrivesPath(activeTab().path)) return;
   if (!clipboardPaths.length) return;
   vscode.postMessage({
     command: "pasteItems",
@@ -3580,9 +3672,12 @@ function pasteClipboard(): void {
 }
 
 function syncDirectoryWatchers(): void {
+  const paths = tabs
+    .map((tab) => tab.path)
+    .filter((tabPath) => !isVirtualDrivesPath(tabPath));
   vscode.postMessage({
     command: "watchDirectories",
-    paths: uniqueWatcherPaths(tabs.map((tab) => tab.path))
+    paths: uniqueWatcherPaths(paths)
   });
 }
 
