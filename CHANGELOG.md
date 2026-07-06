@@ -6,6 +6,8 @@
   highlights the folder that was just exited.
 - Added a Windows-only virtual **This PC** level above drive roots so navigating
   up from `C:\` or another drive root shows the available drives.
+- Kept the virtual **This PC** tab in restored workspace sessions instead of
+  dropping it when the explorer is reopened.
 - Improved README first-screen messaging with clearer positioning, stable
   badges, quick start guidance, demo context, and a more reassuring status
   note for daily use.
@@ -20,6 +22,7 @@
 - 向上返回父目录时会恢复选中刚刚退出的文件夹，避免丢失当前位置。
 - 在 Windows 中为盘符根目录上方增加虚拟的 **This PC** 层级，从 `C:\`
   等盘符根目录继续向上时会显示可用盘符。
+- 重新打开资源管理器时会保留虚拟 **This PC** 页签，不再因为它不是普通目录而丢失。
 - 优化 README 首屏说明，使用更清晰的定位、稳定的徽章、快速开始指引、
   演示说明，以及更适合日常使用的状态说明。
 - 增加 GitHub Actions CI、Dependabot、结构化 issue 模板和安全策略，让项目

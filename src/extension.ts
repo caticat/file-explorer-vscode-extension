@@ -880,6 +880,13 @@ async function readWorkspaceSession(
   for (let index = 0; index < saved.tabs.length && validTabs.length < MAX_SAVED_TABS; index += 1) {
     const savedPath = saved.tabs[index]?.path;
     if (typeof savedPath !== "string") continue;
+    if (isVirtualDrivesPath(savedPath)) {
+      if (index === saved.activeTabIndex) {
+        activeTabIndex = validTabs.length;
+      }
+      validTabs.push({ path: savedPath });
+      continue;
+    }
     try {
       const resolvedPath = path.resolve(savedPath);
       if ((await fs.promises.stat(resolvedPath)).isDirectory()) {
@@ -915,7 +922,10 @@ async function saveWorkspaceSession(
     .map((tab) => {
       if (!tab || typeof tab !== "object") return undefined;
       const tabPath = (tab as Record<string, unknown>).path;
-      return typeof tabPath === "string" ? { path: path.resolve(tabPath) } : undefined;
+      if (typeof tabPath !== "string") return undefined;
+      return {
+        path: isVirtualDrivesPath(tabPath) ? tabPath : path.resolve(tabPath)
+      };
     })
     .filter((tab): tab is { path: string } => tab !== undefined);
   if (!tabs.length) return;
