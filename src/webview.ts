@@ -1329,6 +1329,12 @@ function navigateTabUp(tab: ExplorerTab): void {
   }
 }
 
+function canNavigateUp(tab: ExplorerTab): boolean {
+  if (isVirtualDrivesPath(tab.path)) return false;
+  if (platform === "win32" && isWindowsDriveRoot(tab.path)) return true;
+  return dirname(tab.path) !== tab.path;
+}
+
 function loadDirectory(tab: ExplorerTab, preserveItems: boolean, preserveFocus = false): void {
   cancelTabRequests(tab);
   tab.requestId = randomId();
@@ -1660,9 +1666,10 @@ function renderAddress(tab: ExplorerTab): void {
 
 function renderToolbar(tab: ExplorerTab): void {
   const virtualDrives = isVirtualDrivesPath(tab.path);
+  const canGoUp = canNavigateUp(tab);
   elements.back.disabled = tab.historyIndex <= 0;
   elements.forward.disabled = tab.historyIndex >= tab.history.length - 1;
-  elements.up.disabled = virtualDrives || dirname(tab.path) === tab.path;
+  elements.up.disabled = !canGoUp;
   elements.workspaceHome.disabled = !workspaceRoots.length;
   elements.refresh.disabled = virtualDrives;
   elements.newFile.disabled = virtualDrives;
@@ -1672,7 +1679,7 @@ function renderToolbar(tab: ExplorerTab): void {
   elements.favoriteLocation.disabled = virtualDrives;
   elements.recentLocations.disabled = recentLocationOptions(tab).length === 0 && favoriteLocationOptions().length === 0;
   elements.sidebarBack.disabled = tab.historyIndex <= 0;
-  elements.sidebarUp.disabled = virtualDrives || dirname(tab.path) === tab.path;
+  elements.sidebarUp.disabled = !canGoUp;
   elements.sidebarWorkspaceHome.disabled = !workspaceRoots.length;
   elements.sidebarRefresh.disabled = virtualDrives;
   elements.sidebarNewFile.disabled = virtualDrives;
@@ -2558,7 +2565,7 @@ function updatePaneChrome(tab: ExplorerTab, pane: HTMLElement): void {
   }
   setPaneButtonDisabled(pane, "back", tab.historyIndex <= 0);
   setPaneButtonDisabled(pane, "forward", tab.historyIndex >= tab.history.length - 1);
-  setPaneButtonDisabled(pane, "up", virtualDrives || dirname(tab.path) === tab.path);
+  setPaneButtonDisabled(pane, "up", !canNavigateUp(tab));
   setPaneButtonDisabled(pane, "home", !workspaceRoots.length);
   setPaneButtonDisabled(pane, "refresh", virtualDrives);
   setPaneButtonDisabled(pane, "newFile", virtualDrives);
