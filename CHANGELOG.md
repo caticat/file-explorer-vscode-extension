@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.2.11
+## 0.2.12
 
 - Restored the folder selection when navigating up so the parent folder view
   highlights the folder that was just exited.

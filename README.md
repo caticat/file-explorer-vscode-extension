@@ -24,6 +24,8 @@ patterns, and keyboard habits should work naturally.
 - Details and Large Icons views with persistent sorting.
 - Fast large-folder browsing with incremental loading and virtualized
   rendering.
+- Windows drive-root navigation with a virtual **This PC** level for switching
+  between available drives.
 - Cancellable recursive filename search that reuses VS Code exclude settings.
 - Windows Explorer-like mouse and keyboard selection.
 - File operations: create, rename, copy, cut, paste, trash, and permanent
@@ -113,9 +115,13 @@ cases, usability, and platform support.
 - Supports multi-root workspaces, with one initial tab per root folder when no
   saved session exists.
 - Restores tab order, current paths, active tab, and tiled-tab mode per
-  workspace when session restoration is enabled.
+  workspace when session restoration is enabled, including the virtual
+  **This PC** tab on Windows.
 - Provides back, forward, up, refresh, breadcrumbs, manual path entry
   (`Ctrl+L`), and one-click workspace Home navigation.
+- On Windows, navigating up from a drive root such as `C:\` opens a virtual
+  **This PC** view that lists available drives; navigating into a drive returns
+  to normal folder browsing.
 - Opens files and folders from the built-in VS Code Explorer context menu.
 - Reveals the active editor tab file from the editor tab context menu.
 
@@ -142,6 +148,8 @@ cases, usability, and platform support.
 
 - Provides an optional editor-only folder tree with collapse-all, persisted
   visibility, and persisted expanded state.
+- Keeps the folder tree rooted at the current VS Code workspace folders, while
+  external folders and drive-level navigation stay in the active file tab.
 - Lazily follows the active folder path in the tree without expanding sibling
   folders.
 - Supports tree expand/collapse from the arrow, double-click, or `Enter` when
@@ -254,6 +262,10 @@ The editor-only folder tree is lazy loaded. It reads child folders only when a
 tree node is expanded, and it does not recursively expand the full workspace.
 When the main file view navigates to a folder, the tree lazily expands only the
 ancestor chain required to reveal that folder.
+The tree remains anchored to the VS Code workspace roots. If a file tab browses
+outside the workspace, including Windows drive roots or the virtual **This PC**
+view, the tree keeps showing the workspace structure while the active tab shows
+the external location.
 By default the tree does not probe child folders before expansion, so unloaded
 folders show an expand arrow and folders without visible child folders lose the
 arrow after they are opened. Enable `simpleFileExplorer.treeProbeChildFolders`
@@ -330,6 +342,7 @@ Windows 资源管理器。
 - 支持多页签和并排平铺 pane，方便对比多个目录。
 - 支持详细信息和大图标视图，并保留排序偏好。
 - 大目录使用流式读取和虚拟滚动。
+- Windows 下支持从盘符根目录向上进入虚拟 **This PC** 层级，用于在可用盘符之间切换。
 - 支持可取消的递归文件名搜索，并复用 VS Code 排除设置。
 - 鼠标和键盘选择方式接近 Windows 资源管理器。
 - 支持新建、重命名、复制、剪切、粘贴、删除到回收站和永久删除。
@@ -397,8 +410,11 @@ Simple File Explorer 更接近文件管理器工作流：
 - 会铺满 editor 或 sidebar 可用区域，不保留额外 webview 边距。
 - 默认从当前 VS Code 工作区目录开始。
 - 支持多根工作区；没有保存状态时，会为每个根目录创建一个初始页签。
-- 可按工作区恢复页签顺序、当前路径、活动页签和平铺页签模式。
+- 可按工作区恢复页签顺序、当前路径、活动页签和平铺页签模式；Windows 下也会恢复
+  虚拟 **This PC** 页签。
 - 支持前进、后退、向上、刷新、面包屑、手动路径输入 (`Ctrl+L`) 和工作区首页。
+- Windows 下从 `C:\` 等盘符根目录继续向上会进入虚拟 **This PC** 视图，显示可用盘符；
+  进入某个盘符后会回到普通文件夹浏览。
 - 可从 VS Code 自带 Explorer 右键菜单打开文件或目录。
 - 可从编辑器页签右键菜单中将当前文件定位到 Simple File Explorer。
 
@@ -418,6 +434,8 @@ Simple File Explorer 更接近文件管理器工作流：
 ### 树形导航、位置和图标
 
 - editor 模式可开启左侧文件夹树，支持一键折叠，并保存显示和展开状态。
+- 左侧文件夹树保持以当前 VS Code 工作区根目录为边界；外部目录和盘符层级导航会保留在
+  当前文件页签中。
 - 主文件区切换目录时，左侧文件夹树会懒加载并展开当前路径的祖先链，不会展开旁支目录。
 - 树形目录可以通过箭头、双击，或在最近操作目标为树时按 `Enter` 展开和折叠。
 - editor 模式下切换左侧文件夹树时，大图标视图会保持正确列数。
@@ -524,6 +542,9 @@ Simple File Explorer 更接近文件管理器工作流：
 当主文件区导航到某个目录时，树形导航会只沿当前路径的祖先链逐级展开。
 如果某一级还没有加载，只会读取这一层，等返回后继续展开下一层，不会扫描
 兄弟目录。
+树形导航始终锚定在 VS Code 工作区根目录。当前文件页签浏览到工作区之外时，
+包括 Windows 盘符根目录或虚拟 **This PC** 视图，树形导航会继续显示工作区结构，
+外部位置由当前页签和地址栏表达。
 
 隐藏文件夹树时，不会渲染树，也不会发起树形目录读取。editor 模式下会保留
 webview 上下文，切换到文件编辑器再回来时不会重置树状态；代价是隐藏时会保留
