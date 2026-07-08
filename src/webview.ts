@@ -16,6 +16,7 @@ import {
   dragSelectionState,
   emptySelectionState,
   keyboardActivationSelectionState,
+  isRepeatedItemClick,
   type KeyboardNavigationKey,
   keyboardNavigationState,
   normalizedRect,
@@ -179,6 +180,7 @@ let treeShowHidden = false;
 let treeProbeChildFolders = false;
 let preferredTreeExpandedPaths = new Set<string>();
 let lastTreeClick: { path: string; time: number } | undefined;
+let lastItemClick: { tabId: string; path: string; time: number } | undefined;
 let focusedTreePath: string | undefined;
 let pendingTreeRevealPath: string | undefined;
 const treeNodes = new Map<string, TreeNodeState>();
@@ -2841,16 +2843,28 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
       return;
     }
     focusTab(tab.id);
+    const currentClick = { tabId: tab.id, path: item.path, time: performance.now() };
+    const plainClick = !event.ctrlKey && !event.metaKey && !event.shiftKey;
+    const repeatedClick =
+      plainClick &&
+      isRepeatedItemClick({ previous: lastItemClick, current: currentClick, platform });
+    lastItemClick = plainClick && !repeatedClick ? currentClick : undefined;
+
+    if (repeatedClick) {
+      event.preventDefault();
+      if (item.isDirectory) {
+        navigate(item.path);
+      } else {
+        vscode.postMessage({ command: "openFile", path: item.path });
+      }
+      return;
+    }
+
     updateSelection(tab, item.path, event.ctrlKey || event.metaKey, event.shiftKey);
     scheduleRender();
   });
-  element.addEventListener("dblclick", () => {
-    focusTab(tab.id);
-    if (item.isDirectory) {
-      navigate(item.path);
-    } else {
-      vscode.postMessage({ command: "openFile", path: item.path });
-    }
+  element.addEventListener("dblclick", (event) => {
+    event.preventDefault();
   });
   element.addEventListener("contextmenu", (event) => {
     event.preventDefault();

@@ -43,6 +43,7 @@ import {
 import {
   dragSelectionState,
   emptySelectionState,
+  isRepeatedItemClick,
   keyboardActivationSelectionState,
   keyboardNavigationState,
   normalizedRect,
@@ -90,6 +91,35 @@ import {
   virtualListLayout,
   virtualRenderSignature
 } from "../src/webviewVirtualList.ts";
+
+test("repeated item clicks survive item re-rendering", () => {
+  const previous = { tabId: "tab-1", path: "C:\\Work\\file.txt", time: 1000 };
+
+  assert.equal(
+    isRepeatedItemClick({
+      previous,
+      current: { tabId: "tab-1", path: "c:\\work\\file.txt", time: 1250 },
+      platform: "win32"
+    }),
+    true
+  );
+  assert.equal(
+    isRepeatedItemClick({
+      previous,
+      current: { tabId: "tab-2", path: "C:\\Work\\file.txt", time: 1250 },
+      platform: "win32"
+    }),
+    false
+  );
+  assert.equal(
+    isRepeatedItemClick({
+      previous,
+      current: { tabId: "tab-1", path: "C:\\Work\\file.txt", time: 1500 },
+      platform: "win32"
+    }),
+    false
+  );
+});
 
 test("createNameMatcher matches plain text case-insensitively", () => {
   const matcher = createNameMatcher("read");
