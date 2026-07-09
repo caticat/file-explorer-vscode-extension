@@ -30,29 +30,6 @@ export interface SuppressedDragClickState {
   expiresAt: number;
 }
 
-export interface ItemClickState {
-  tabId: string;
-  path: string;
-  time: number;
-}
-
-export function isRepeatedItemClick(options: {
-  previous?: ItemClickState;
-  current: ItemClickState;
-  platform: string;
-  thresholdMs?: number;
-}): boolean {
-  const { previous, current, platform, thresholdMs = 400 } = options;
-  return Boolean(
-    previous &&
-      previous.tabId === current.tabId &&
-      normalizeForComparison(previous.path, platform) ===
-        normalizeForComparison(current.path, platform) &&
-      current.time >= previous.time &&
-      current.time - previous.time <= thresholdMs
-  );
-}
-
 export function updateSelectionState(options: {
   state: SelectionState;
   itemPath: string;

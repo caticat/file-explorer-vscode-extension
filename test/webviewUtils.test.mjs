@@ -43,7 +43,6 @@ import {
 import {
   dragSelectionState,
   emptySelectionState,
-  isRepeatedItemClick,
   keyboardActivationSelectionState,
   keyboardNavigationState,
   normalizedRect,
@@ -91,35 +90,6 @@ import {
   virtualListLayout,
   virtualRenderSignature
 } from "../src/webviewVirtualList.ts";
-
-test("repeated item clicks survive item re-rendering", () => {
-  const previous = { tabId: "tab-1", path: "C:\\Work\\file.txt", time: 1000 };
-
-  assert.equal(
-    isRepeatedItemClick({
-      previous,
-      current: { tabId: "tab-1", path: "c:\\work\\file.txt", time: 1250 },
-      platform: "win32"
-    }),
-    true
-  );
-  assert.equal(
-    isRepeatedItemClick({
-      previous,
-      current: { tabId: "tab-2", path: "C:\\Work\\file.txt", time: 1250 },
-      platform: "win32"
-    }),
-    false
-  );
-  assert.equal(
-    isRepeatedItemClick({
-      previous,
-      current: { tabId: "tab-1", path: "C:\\Work\\file.txt", time: 1500 },
-      platform: "win32"
-    }),
-    false
-  );
-});
 
 test("createNameMatcher matches plain text case-insensitively", () => {
   const matcher = createNameMatcher("read");
@@ -630,12 +600,11 @@ test("virtualListLayout computes grid ranges and columns", () => {
   );
 });
 
-test("virtualRenderSignature includes selection, viewport, and visible metadata", () => {
+test("virtualRenderSignature includes viewport and visible metadata", () => {
   assert.equal(
     virtualRenderSignature({
       tabId: "tab-1",
       viewMode: "list",
-      selectedPaths: ["C:\\Work\\A.txt"],
       visibleItems: [{ path: "C:\\Work\\A.txt", modified: 10, size: 20 }],
       startIndex: 1,
       endIndex: 2,
@@ -643,10 +612,9 @@ test("virtualRenderSignature includes selection, viewport, and visible metadata"
       totalHeight: 300,
       columns: 1,
       viewportWidth: 500,
-      viewportHeight: 200,
-      normalizePath: (value) => value.toLocaleLowerCase()
+      viewportHeight: 200
     }),
-    "tab-1;list;c:\\work\\a.txt;1;2;30;300;1;500;200;C:\\Work\\A.txt:10:20"
+    "tab-1;list;1;2;30;300;1;500;200;C:\\Work\\A.txt:10:20"
   );
 });
 

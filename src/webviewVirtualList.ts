@@ -67,7 +67,6 @@ export function virtualListLayout(options: {
 export function virtualRenderSignature(options: {
   tabId: string;
   viewMode: "list" | "grid";
-  selectedPaths: string[];
   visibleItems: VirtualRenderItem[];
   startIndex: number;
   endIndex: number;
@@ -76,12 +75,10 @@ export function virtualRenderSignature(options: {
   columns: number;
   viewportWidth: number;
   viewportHeight: number;
-  normalizePath: (path: string) => string;
 }): string {
   return [
     options.tabId,
     options.viewMode,
-    options.selectedPaths.map(options.normalizePath).join("|"),
     options.startIndex,
     options.endIndex,
     options.top,

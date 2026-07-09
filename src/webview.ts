@@ -16,7 +16,6 @@ import {
   dragSelectionState,
   emptySelectionState,
   keyboardActivationSelectionState,
-  isRepeatedItemClick,
   type KeyboardNavigationKey,
   keyboardNavigationState,
   normalizedRect,
@@ -180,7 +179,6 @@ let treeShowHidden = false;
 let treeProbeChildFolders = false;
 let preferredTreeExpandedPaths = new Set<string>();
 let lastTreeClick: { path: string; time: number } | undefined;
-let lastItemClick: { tabId: string; path: string; time: number } | undefined;
 let focusedTreePath: string | undefined;
 let pendingTreeRevealPath: string | undefined;
 const treeNodes = new Map<string, TreeNodeState>();
@@ -2757,7 +2755,6 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
   const renderSignature = virtualRenderSignature({
     tabId: tab.id,
     viewMode: tab.viewMode,
-    selectedPaths: tab.selectedPaths,
     visibleItems: visible,
     startIndex: layout.startIndex,
     endIndex: layout.endIndex,
@@ -2765,13 +2762,13 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
     totalHeight: layout.totalHeight,
     columns: layout.columns,
     viewportWidth: target.viewport.clientWidth,
-    viewportHeight: target.viewport.clientHeight,
-    normalizePath: normalizeForComparison
+    viewportHeight: target.viewport.clientHeight
   });
   if (target.items.dataset.renderSignature !== renderSignature) {
     target.items.dataset.renderSignature = renderSignature;
     target.items.replaceChildren(...visible.map((item) => createItemElement(item, tab)));
   }
+  syncRenderedSelection(target.items, tab);
 
   const needsMetadata = isVirtualDrivesPath(tab.path)
     ? []
@@ -2843,28 +2840,16 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
       return;
     }
     focusTab(tab.id);
-    const currentClick = { tabId: tab.id, path: item.path, time: performance.now() };
-    const plainClick = !event.ctrlKey && !event.metaKey && !event.shiftKey;
-    const repeatedClick =
-      plainClick &&
-      isRepeatedItemClick({ previous: lastItemClick, current: currentClick, platform });
-    lastItemClick = plainClick && !repeatedClick ? currentClick : undefined;
-
-    if (repeatedClick) {
-      event.preventDefault();
-      if (item.isDirectory) {
-        navigate(item.path);
-      } else {
-        vscode.postMessage({ command: "openFile", path: item.path });
-      }
-      return;
-    }
-
     updateSelection(tab, item.path, event.ctrlKey || event.metaKey, event.shiftKey);
     scheduleRender();
   });
   element.addEventListener("dblclick", (event) => {
     event.preventDefault();
+    if (item.isDirectory) {
+      navigate(item.path);
+    } else {
+      vscode.postMessage({ command: "openFile", path: item.path });
+    }
   });
   element.addEventListener("contextmenu", (event) => {
     event.preventDefault();
@@ -2880,6 +2865,17 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
     scheduleRender();
   });
   return element;
+}
+
+function syncRenderedSelection(container: HTMLElement, tab: ExplorerTab): void {
+  const selectedPaths = new Set(tab.selectedPaths.map(normalizeForComparison));
+  for (const element of Array.from(container.querySelectorAll<HTMLElement>(".file-item[data-path]"))) {
+    const path = element.dataset.path;
+    element.classList.toggle(
+      "selected",
+      path !== undefined && selectedPaths.has(normalizeForComparison(path))
+    );
+  }
 }
 
 function splitPath(value: string): Array<{ label: string; path: string }> {
