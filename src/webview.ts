@@ -378,6 +378,7 @@ app.innerHTML = `
     <button id="refresh-menu" role="menuitem">Refresh</button>
     <div id="create-menu-separator" class="menu-separator"></div>
     <button id="reveal-system" role="menuitem">Reveal in System File Manager</button>
+    <button id="open-external-app" role="menuitem">Open in External App</button>
     <button id="show-in-explorer" role="menuitem">Show in Simple File Explorer</button>
     <div id="item-menu-separator" class="menu-separator"></div>
     <button id="open-terminal-here" role="menuitem">Open Terminal Here</button>
@@ -455,6 +456,7 @@ const elements = {
   refreshMenu: button("refresh-menu"),
   createMenuSeparator: byId("create-menu-separator"),
   revealSystem: button("reveal-system"),
+  openExternalApp: button("open-external-app"),
   showInExplorer: button("show-in-explorer"),
   itemMenuSeparator: byId("item-menu-separator"),
   openTerminalHere: button("open-terminal-here"),
@@ -568,6 +570,12 @@ elements.contextMenu.addEventListener("click", (event) => {
 elements.revealSystem.addEventListener("click", () => {
   if (contextMenuItem) {
     vscode.postMessage({ command: "revealInSystem", path: contextMenuItem.path });
+  }
+  hideContextMenu();
+});
+elements.openExternalApp.addEventListener("click", () => {
+  if (contextMenuItem) {
+    vscode.postMessage({ command: "openExternalApp", path: contextMenuItem.path });
   }
   hideContextMenu();
 });
@@ -3137,6 +3145,10 @@ function showContextMenu(
   elements.newFolderMenu.classList.toggle("hidden", itemMenu || virtualDrives);
   elements.refreshMenu.classList.toggle("hidden", itemMenu || virtualDrives);
   elements.revealSystem.classList.toggle("hidden", virtualDrives || !itemMenu || !revealInSystemAvailable);
+  elements.openExternalApp.classList.toggle(
+    "hidden",
+    virtualDrives || !itemMenu || !revealInSystemAvailable || item?.isDirectory === true
+  );
   elements.showInExplorer.classList.toggle("hidden", virtualDrives || !itemMenu || !allowShowInExplorer);
   elements.openTerminalHere.classList.toggle("hidden", virtualDrives);
   elements.copyName.classList.toggle("hidden", !itemMenu);
@@ -3187,6 +3199,7 @@ function updateContextMenuSeparators(): void {
     elements.refreshMenu
   ], [
     elements.revealSystem,
+    elements.openExternalApp,
     elements.showInExplorer,
     elements.openTerminalHere,
     elements.copyName,
@@ -3195,6 +3208,7 @@ function updateContextMenuSeparators(): void {
   ]);
   updateSeparatorVisibility(elements.itemMenuSeparator, [
     elements.revealSystem,
+    elements.openExternalApp,
     elements.showInExplorer
   ], [
     elements.openTerminalHere,

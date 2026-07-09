@@ -30,6 +30,7 @@ patterns, and keyboard habits should work naturally.
 - Windows Explorer-like mouse and keyboard selection.
 - File operations: create, rename, copy, cut, paste, trash, and permanent
   delete.
+- Open local files in their external default app from the context menu.
 - Remote SSH workspace support.
 
 ## Quick Start
@@ -61,6 +62,8 @@ Simple File Explorer is designed for file-manager workflows:
 - Search filenames recursively with cancellation.
 - Copy paths, open terminals, and perform common file operations from context
   menus.
+- Open local files in their system default app without first opening the
+  containing folder.
 
 ## Opening Simple File Explorer
 
@@ -95,8 +98,9 @@ cases, usability, and platform support.
 - Windows and Linux are supported.
 - Remote SSH workspaces are supported. The extension runs on the remote
   workspace host so file browsing and file operations apply to remote files.
-  **Reveal in System File Manager** is hidden in remote windows because remote
-  paths cannot reliably be opened in the local operating system file manager.
+  **Reveal in System File Manager** and **Open in External App** are hidden in
+  remote windows because remote paths cannot reliably be opened in local
+  operating system applications.
   File icon themes can be reused only when the theme is also available to the
   remote extension host; otherwise icons fall back to the built-in Codicon set.
 - macOS should work through the same Node.js and VS Code APIs, but is not yet
@@ -192,6 +196,8 @@ cases, usability, and platform support.
 - Provides context-menu text-copy actions for item names, item paths,
   workspace-relative item paths, file folder paths, and workspace-relative file
   folder paths.
+- Opens selected local files in their external default app from the item
+  context menu.
 - Opens terminals from a selected file's containing folder, a selected folder,
   or the current empty-area folder.
 - Navigates from recursive search results to the containing folder with the item
@@ -203,8 +209,9 @@ cases, usability, and platform support.
   on the remote workspace host.
 - Applies file browsing, search, watchers, terminals, and file operations to
   remote workspace files in Remote SSH windows.
-- Hides **Reveal in System File Manager** in remote windows because remote paths
-  cannot reliably be opened in the local operating system file manager.
+- Hides **Reveal in System File Manager** and **Open in External App** in remote
+  windows because remote paths cannot reliably be opened in local operating
+  system applications.
 - Reuses file icon themes in Remote SSH only when the theme is available to the
   remote extension host; otherwise the built-in Codicon icons are used.
 
@@ -346,6 +353,7 @@ Windows 资源管理器。
 - 支持可取消的递归文件名搜索，并复用 VS Code 排除设置。
 - 鼠标和键盘选择方式接近 Windows 资源管理器。
 - 支持新建、重命名、复制、剪切、粘贴、删除到回收站和永久删除。
+- 可从右键菜单用系统默认外部应用打开本地文件。
 - 支持 Remote SSH 工作区。
 
 ## 快速开始
@@ -375,6 +383,7 @@ Simple File Explorer 更接近文件管理器工作流：
 - 浏览大目录时不需要展开巨大的项目树。
 - 可取消地递归搜索文件名。
 - 通过右键菜单复制路径、打开终端并执行常见文件操作。
+- 可直接用系统默认外部应用打开本地文件，不需要先打开所在目录。
 
 ## 打开方式
 
@@ -467,6 +476,7 @@ Simple File Explorer 更接近文件管理器工作流：
   复制当前目录路径或粘贴文件。
 - 右键菜单支持复制名称、路径、工作区相对路径、文件所在文件夹路径，以及文件所在
   文件夹的工作区相对路径，并写入 VS Code 文本剪贴板。
+- 右键菜单支持用系统默认外部应用打开选中的本地文件。
 - 右键菜单支持在当前位置打开终端；文件会使用所在目录，文件夹会使用自身目录，
   空白区域会使用当前浏览目录。
 - 递归搜索结果可以跳转到所在目录并选中目标项。
@@ -476,8 +486,8 @@ Simple File Explorer 更接近文件管理器工作流：
 - 扩展声明为 VS Code workspace extension，因此 Remote SSH 窗口中会运行在远程
   workspace host 上。
 - 在 Remote SSH 中，文件浏览、搜索、目录监听、终端和文件操作都作用于远程工作区文件。
-- 远程窗口中会隐藏 **Reveal in System File Manager**，因为远程路径无法可靠地在
-  本地系统文件管理器中打开。
+- 远程窗口中会隐藏 **Reveal in System File Manager** 和
+  **Open in External App**，因为远程路径无法可靠地在本地系统应用中打开。
 - 文件图标主题只有在远程 extension host 也可访问时才能复用，否则会回退到内置
   Codicon 图标。
 

@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -515,6 +516,9 @@ async function handleMessage(
       case "revealInSystem":
         if (vscode.env.remoteName) return;
         await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(asString(message.path)));
+        break;
+      case "openExternalApp":
+        await openExternalApp(asString(message.path));
         break;
       case "copyPath":
         await copyPathToClipboard(
@@ -1750,6 +1754,40 @@ async function openFile(filePath: string): Promise<void> {
   await vscode.commands.executeCommand("vscode.open", vscode.Uri.file(filePath), {
     preview: false,
     viewColumn: vscode.ViewColumn.Active
+  });
+}
+
+async function openExternalApp(requestedPath: string): Promise<void> {
+  if (vscode.env.remoteName) return;
+  const filePath = normalizeInputPath(requestedPath);
+  const stat = await fs.promises.stat(filePath);
+  if (!stat.isFile()) {
+    throw new Error("External app path must be a file.");
+  }
+  if (process.platform === "win32") {
+    await openExternalAppWithWindowsShell(filePath);
+    return;
+  }
+  const opened = await vscode.env.openExternal(vscode.Uri.file(filePath));
+  if (!opened) {
+    throw new Error("Could not open file in an external app.");
+  }
+}
+
+function openExternalAppWithWindowsShell(filePath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("cmd.exe", ["/d", "/s", "/c", "start", "", filePath], {
+      windowsHide: true,
+      stdio: "ignore"
+    });
+    child.once("error", reject);
+    child.once("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error("Could not open file in an external app."));
+    });
   });
 }
 

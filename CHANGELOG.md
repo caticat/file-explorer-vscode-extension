@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.2.14
+
+- Added **Open in External App** to local file context menus so files can be
+  opened with their system default application without first opening the
+  containing folder.
+- Used the native Windows shell file association path for external app opens on
+  Windows while keeping the VS Code external-open API for macOS and Linux.
+- Kept external app opens hidden in Remote SSH windows because remote paths
+  cannot reliably launch local operating system applications.
+
 ## 0.2.13
 
 - Fixed unreliable fast double-click opening for files that were not already
