@@ -2851,8 +2851,8 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
     updateSelection(tab, item.path, event.ctrlKey || event.metaKey, event.shiftKey);
     scheduleRender();
   });
-  element.addEventListener("dblclick", (event) => {
-    event.preventDefault();
+  element.addEventListener("dblclick", () => {
+    focusTab(tab.id);
     if (item.isDirectory) {
       navigate(item.path);
     } else {
