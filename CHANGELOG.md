@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.2.13
+
+- Fixed unreliable fast double-click opening for files that were not already
+  selected by keeping file item DOM nodes stable when selection changes.
+
 ## 0.2.12
 
 - Restored the folder selection when navigating up so the parent folder view

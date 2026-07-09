@@ -2755,7 +2755,6 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
   const renderSignature = virtualRenderSignature({
     tabId: tab.id,
     viewMode: tab.viewMode,
-    selectedPaths: tab.selectedPaths,
     visibleItems: visible,
     startIndex: layout.startIndex,
     endIndex: layout.endIndex,
@@ -2763,13 +2762,13 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
     totalHeight: layout.totalHeight,
     columns: layout.columns,
     viewportWidth: target.viewport.clientWidth,
-    viewportHeight: target.viewport.clientHeight,
-    normalizePath: normalizeForComparison
+    viewportHeight: target.viewport.clientHeight
   });
   if (target.items.dataset.renderSignature !== renderSignature) {
     target.items.dataset.renderSignature = renderSignature;
     target.items.replaceChildren(...visible.map((item) => createItemElement(item, tab)));
   }
+  syncItemSelectionClasses(tab, target.items);
 
   const needsMetadata = isVirtualDrivesPath(tab.path)
     ? []
@@ -2866,6 +2865,17 @@ function createItemElement(item: DirectoryItem, tab: ExplorerTab): HTMLElement {
     scheduleRender();
   });
   return element;
+}
+
+function syncItemSelectionClasses(tab: ExplorerTab, itemsElement: HTMLElement): void {
+  const selected = new Set(tab.selectedPaths.map((itemPath) => normalizeForComparison(itemPath)));
+  itemsElement.querySelectorAll<HTMLElement>(".file-item[data-path]").forEach((element) => {
+    const itemPath = element.dataset.path;
+    element.classList.toggle(
+      "selected",
+      itemPath !== undefined && selected.has(normalizeForComparison(itemPath))
+    );
+  });
 }
 
 function splitPath(value: string): Array<{ label: string; path: string }> {
