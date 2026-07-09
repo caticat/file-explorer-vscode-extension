@@ -600,8 +600,40 @@ test("virtualListLayout computes grid ranges and columns", () => {
   );
 });
 
-test("virtualRenderSignature includes viewport and visible metadata", () => {
+test("virtualRenderSignature ignores selection while tracking viewport and visible metadata", () => {
+  const base = {
+    tabId: "tab-1",
+    viewMode: "list",
+    visibleItems: [{ path: "C:\\Work\\A.txt", modified: 10, size: 20 }],
+    startIndex: 1,
+    endIndex: 2,
+    top: 30,
+    totalHeight: 300,
+    columns: 1,
+    viewportWidth: 500,
+    viewportHeight: 200
+  };
+
   assert.equal(
+    virtualRenderSignature(base),
+    "tab-1;list;1;2;30;300;1;500;200;C:\\Work\\A.txt:10:20"
+  );
+  assert.equal(
+    virtualRenderSignature({
+      ...base,
+      selectedPaths: ["C:\\Work\\A.txt"],
+      normalizePath: (value) => value.toLocaleLowerCase()
+    }),
+    virtualRenderSignature({
+      ...base,
+      selectedPaths: ["C:\\Work\\B.txt"],
+      normalizePath: (value) => value.toLocaleLowerCase()
+    })
+  );
+});
+
+test("virtualRenderSignature changes for visible metadata changes", () => {
+  assert.notEqual(
     virtualRenderSignature({
       tabId: "tab-1",
       viewMode: "list",
@@ -614,7 +646,18 @@ test("virtualRenderSignature includes viewport and visible metadata", () => {
       viewportWidth: 500,
       viewportHeight: 200
     }),
-    "tab-1;list;1;2;30;300;1;500;200;C:\\Work\\A.txt:10:20"
+    virtualRenderSignature({
+      tabId: "tab-1",
+      viewMode: "list",
+      visibleItems: [{ path: "C:\\Work\\A.txt", modified: 11, size: 20 }],
+      startIndex: 1,
+      endIndex: 2,
+      top: 30,
+      totalHeight: 300,
+      columns: 1,
+      viewportWidth: 500,
+      viewportHeight: 200
+    })
   );
 });
 
