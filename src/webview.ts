@@ -150,6 +150,8 @@ let pathSeparator = "/";
 let platform = "linux";
 let viewKind: "editor" | "sidebar" = "editor";
 let preferredViewMode: ExplorerTab["viewMode"] = "list";
+let tabLayout: "horizontal" | "vertical" = "horizontal";
+let verticalTabRailSize: "expanded" | "compact" = "expanded";
 let preferredRecursiveSearch = false;
 let preferredSortState: ItemSortState = { sortKey: "name", sortDirection: "asc" };
 let listColumns: ListColumnPreferences = { modified: true, size: true };
@@ -215,15 +217,13 @@ app.innerHTML = `
   <div class="shell">
     <div class="tabs-bar">
       <div id="tabs" class="tabs"></div>
-      <button id="new-tab" class="icon-button" title="New tab" aria-label="New tab">${toolbarIcon(
-        "M8 1.5V14.5M1.5 8H14.5"
-      )}</button>
-      <button id="tile-tabs" class="icon-button" title="Tile tabs" aria-label="Tile tabs" aria-pressed="false">${toolbarIcon(
-        "M2.5 2.5h5v11h-5v-11ZM9.5 2.5h4v4.5h-4V2.5ZM9.5 9h4v4.5h-4V9Z"
-      )}</button>
-      <button id="toggle-view-location" class="icon-button" title="Move to Sidebar" aria-label="Move to Sidebar">${toolbarIcon(
-        "M2 2.5h12v11H2v-11ZM5.5 2.5v11"
-      )}</button>
+      <div class="tab-actions">
+        <button id="new-tab" class="icon-button" title="New tab" aria-label="New tab">${toolbarIcon("M8 1.5V14.5M1.5 8H14.5")}<span class="tab-action-label">New</span></button>
+        <button id="tile-tabs" class="icon-button" title="Tile tabs" aria-label="Tile tabs" aria-pressed="false">${toolbarIcon("M2.5 2.5h5v11h-5v-11ZM9.5 2.5h4v4.5h-4V2.5ZM9.5 9h4v4.5h-4V9Z")}<span class="tab-action-label">Tiles</span></button>
+        <button id="toggle-tab-layout" class="icon-button" title="Use vertical tabs" aria-label="Use vertical tabs" aria-pressed="false">${toolbarIcon("M3 2.5h10M3 6.5h10M3 10.5h10M3 14.5h10M1.5 2.5v12")}<span class="tab-action-label">Tabs</span></button>
+        <button id="toggle-tab-rail-size" class="icon-button" title="Use compact tab rail" aria-label="Use compact tab rail" aria-pressed="false">${toolbarIcon("M2.5 2.5h11v11h-11v-11ZM5 2.5v11")}<span class="tab-action-label">Compact</span></button>
+        <button id="toggle-view-location" class="icon-button" title="Move to Sidebar" aria-label="Move to Sidebar">${toolbarIcon("M2 2.5h12v11H2v-11ZM5.5 2.5v11")}<span class="tab-action-label">Location</span></button>
+      </div>
       <div id="tile-active-path" class="tile-active-path pane-mode-control" title=""></div>
       <span class="tabs-bar-separator pane-mode-control" aria-hidden="true"></span>
       <button id="tile-list-view" class="icon-button pane-mode-control" title="Details view" aria-label="Details view">${toolbarIcon(
@@ -405,6 +405,8 @@ const elements = {
   tabs: byId("tabs"),
   newTab: button("new-tab"),
   tileTabs: button("tile-tabs"),
+  toggleTabLayout: button("toggle-tab-layout"),
+  toggleTabRailSize: button("toggle-tab-rail-size"),
   toggleViewLocation: button("toggle-view-location"),
   tileActivePath: byId("tile-active-path"),
   tileListView: button("tile-list-view"),
@@ -482,6 +484,12 @@ elements.newTab.addEventListener("click", () => {
   createTab(getWorkspacePath());
 });
 elements.tileTabs.addEventListener("click", togglePaneLayout);
+elements.toggleTabLayout.addEventListener("click", () => {
+  vscode.postMessage({ command: "toggleTabLayout" });
+});
+elements.toggleTabRailSize.addEventListener("click", () => {
+  vscode.postMessage({ command: "toggleVerticalTabRailSize" });
+});
 elements.toggleViewLocation.addEventListener("click", () => {
   flushSavedSession();
   vscode.postMessage({ command: "toggleViewLocation" });
@@ -743,6 +751,8 @@ function handleHostMessage(message: Record<string, unknown>): void {
       );
       preferredViewMode =
         message.preferredViewMode === "grid" ? "grid" : "list";
+      tabLayout = message.tabLayout === "vertical" ? "vertical" : "horizontal";
+      verticalTabRailSize = message.verticalTabRailSize === "compact" ? "compact" : "expanded";
       preferredRecursiveSearch = message.preferredRecursiveSearch === true;
       preferredSortState = normalizeSortState(message.preferredSortState);
       listColumns = normalizeListColumns(message.listColumns);
@@ -777,6 +787,16 @@ function handleHostMessage(message: Record<string, unknown>): void {
     case "treeProbeChildFoldersChanged": {
       treeProbeChildFolders = message.enabled === true;
       invalidateTreeNodes();
+      scheduleRender();
+      break;
+    }
+    case "tabLayoutChanged": {
+      tabLayout = message.layout === "vertical" ? "vertical" : "horizontal";
+      scheduleRender();
+      break;
+    }
+    case "verticalTabRailSizeChanged": {
+      verticalTabRailSize = message.size === "compact" ? "compact" : "expanded";
       scheduleRender();
       break;
     }
@@ -1515,6 +1535,8 @@ function render(): void {
   shell?.classList.toggle("grid-mode", !paneMode && tab.viewMode === "grid");
   shell?.classList.toggle("tree-visible", !paneMode && viewKind === "editor" && treeVisible);
   shell?.classList.toggle("pane-mode", paneMode);
+  shell?.classList.toggle("vertical-tabs", !paneMode && tabLayout === "vertical");
+  shell?.classList.toggle("compact-tab-rail", !paneMode && verticalTabRailSize === "compact");
   document.body.classList.toggle("hide-modified-column", !listColumns.modified);
   document.body.classList.toggle("hide-size-column", !listColumns.size);
   renderTabs();
@@ -1527,6 +1549,14 @@ function render(): void {
   elements.tileTabs.setAttribute("aria-pressed", String(paneMode));
   elements.tileTabs.title = paneMode ? "Return to tab view" : "Tile tabs";
   elements.tileTabs.setAttribute("aria-label", paneMode ? "Return to tab view" : "Tile tabs");
+  elements.toggleTabLayout.classList.toggle("active", tabLayout === "vertical");
+  elements.toggleTabLayout.setAttribute("aria-pressed", String(tabLayout === "vertical"));
+  elements.toggleTabLayout.title = tabLayout === "vertical" ? "Use horizontal tabs" : "Use vertical tabs";
+  elements.toggleTabLayout.setAttribute("aria-label", elements.toggleTabLayout.title);
+  elements.toggleTabRailSize.classList.toggle("active", verticalTabRailSize === "compact");
+  elements.toggleTabRailSize.setAttribute("aria-pressed", String(verticalTabRailSize === "compact"));
+  elements.toggleTabRailSize.title = verticalTabRailSize === "compact" ? "Use expanded tab rail" : "Use compact tab rail";
+  elements.toggleTabRailSize.setAttribute("aria-label", elements.toggleTabRailSize.title);
   elements.toggleViewLocation.title = viewKind === "sidebar" ? "Open in Editor" : "Move to Sidebar";
   elements.toggleViewLocation.setAttribute("aria-label", elements.toggleViewLocation.title);
   elements.tileActivePath.textContent = paneMode ? tab.path : "";
@@ -1583,7 +1613,9 @@ function renderTabs(): void {
         if (!draggingTabId || draggingTabId === tab.id) return;
         event.preventDefault();
         const bounds = tabElement.getBoundingClientRect();
-        const after = event.clientX >= bounds.left + bounds.width / 2;
+        const after = isVerticalTabLayout()
+          ? event.clientY >= bounds.top + bounds.height / 2
+          : event.clientX >= bounds.left + bounds.width / 2;
         tabElement.classList.toggle("drop-before", !after);
         tabElement.classList.toggle("drop-after", after);
         if (event.dataTransfer) {
@@ -1597,7 +1629,13 @@ function renderTabs(): void {
         event.preventDefault();
         if (!draggingTabId || draggingTabId === tab.id) return;
         const bounds = tabElement.getBoundingClientRect();
-        reorderTab(draggingTabId, tab.id, event.clientX >= bounds.left + bounds.width / 2);
+        reorderTab(
+          draggingTabId,
+          tab.id,
+          isVerticalTabLayout()
+            ? event.clientY >= bounds.top + bounds.height / 2
+            : event.clientX >= bounds.left + bounds.width / 2
+        );
       });
       tabElement.addEventListener("dragend", () => {
         draggingTabId = undefined;
@@ -1607,6 +1645,15 @@ function renderTabs(): void {
       const label = document.createElement("span");
       label.textContent = tab.title;
       label.className = "tab-label";
+      const icon = document.createElement("span");
+      icon.className = "tab-icon";
+      icon.append(createFileIcon({
+        name: tab.title,
+        path: tab.path,
+        isDirectory: true,
+        isSymbolicLink: false
+      }));
+      tabElement.append(icon);
       tabElement.append(label);
 
       const close = document.createElement("span");
@@ -1620,6 +1667,10 @@ function renderTabs(): void {
       return tabElement;
     })
   );
+}
+
+function isVerticalTabLayout(): boolean {
+  return tabLayout === "vertical" && layoutMode !== "panes";
 }
 
 function reorderTab(sourceId: string, targetId: string, after: boolean): void {

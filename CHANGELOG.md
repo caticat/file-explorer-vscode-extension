@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.2.15
+
+- Added a configurable vertical tab rail alongside the original horizontal
+  layout, with vertical drag-and-drop reordering and immediate Settings and
+  toolbar switching.
+- Reused the active VS Code folder icon theme for vertical tabs. The editor
+  rail can show folder names or use a compact icon-only style; sidebar always
+  stays compact.
+- Improved compact-tab interaction so clicking an inactive folder switches to
+  it, while the close control is available only on the active folder.
+- Refined the expanded editor rail actions into single-line, tab-style rows
+  with an icon and label for clearer navigation.
+
 ## 0.2.14
 
 - Added **Open in External App** to local file context menus so files can be

@@ -132,6 +132,10 @@ cases, usability, and platform support.
 ### Tabs, panes, and views
 
 - Supports multiple independent file tabs with drag-and-drop tab ordering.
+- Lets you switch between horizontal tabs and a vertical tab rail. Vertical
+  tabs reuse the active VS Code folder icon theme; the editor rail can show
+  names or become compact, while sidebar stays compact. Hover the active icon
+  to close it; click another icon to switch folders.
 - Provides editor-only tiled tabs mode, where open tabs become independent panes
   in one editor surface.
 - Keeps per-pane navigation, address bars, search fields, selection, and file
@@ -254,6 +258,12 @@ keyboard shortcuts, so you can bind only the commands you need.
   paths, and the active tab separately for each workspace. Default: `true`.
 - `simpleFileExplorer.viewLocation` — choose where the explorer opens:
   `editor` or `sidebar`. Default: `editor`.
+- `simpleFileExplorer.tabLayout` — choose `horizontal` tabs above the explorer
+  or a `vertical` tab rail. Editor tiled panes always use their pane layout.
+  Default: `horizontal`.
+- `simpleFileExplorer.verticalTabRailSize` — choose whether editor vertical
+  tabs are `expanded` with names or a `compact` icon rail. Sidebar always uses
+  the compact rail. Default: `expanded`.
 - `simpleFileExplorer.iconThemeMode` — choose file and folder icons:
   `auto` reuses the current VS Code file icon theme when possible, while
   `codicon` always uses the built-in fallback icons. In Remote SSH windows,
@@ -430,6 +440,9 @@ Simple File Explorer 更接近文件管理器工作流：
 ### 页签、平铺和视图
 
 - 支持多个独立文件页签，并可拖动调整页签顺序。
+- 可在顶部横向页签和左侧竖向页签栏之间切换。竖向页签会复用当前 VS Code
+  文件图标主题中的文件夹图标；editor 可显示名称或切换为紧凑图标栏，sidebar
+  始终保持紧凑。悬停活动图标可关闭页签，点击其他图标会切换文件夹。
 - editor 模式支持平铺页签视图，将打开的页签同时显示为多个独立 pane。
 - 平铺视图中，每个 pane 保留独立导航、地址栏、搜索框、选择和文件操作，
   同时共享显示控制。
@@ -534,6 +547,12 @@ Simple File Explorer 更接近文件管理器工作流：
   当前路径和活动页签，默认开启。
 - `simpleFileExplorer.viewLocation`：选择显示位置，可选 `editor` 或 `sidebar`，
   默认 `editor`。
+- `simpleFileExplorer.tabLayout`：选择顶部 `horizontal` 横向页签或左侧
+  `vertical` 竖向页签栏。editor 平铺 pane 模式始终使用原有窗格布局，默认
+  `horizontal`。
+- `simpleFileExplorer.verticalTabRailSize`：选择 editor 竖向页签栏显示名称的
+  `expanded` 模式或仅显示图标的 `compact` 模式。sidebar 始终使用紧凑模式，
+  默认 `expanded`。
 - `simpleFileExplorer.iconThemeMode`：选择文件和文件夹图标，`auto` 会尽量复用
   当前 VS Code 文件图标主题，`codicon` 始终使用内置兜底图标。Remote SSH 窗口中，
   `auto` 只能复用远程 extension host 可访问的图标主题；否则会回退到内置图标。

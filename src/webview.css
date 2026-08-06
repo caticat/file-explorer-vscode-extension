@@ -423,6 +423,193 @@ button {
   overflow: hidden;
 }
 
+.shell.vertical-tabs {
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  grid-template-rows: 44px minmax(0, 1fr) 24px;
+}
+
+.tab-actions {
+  display: contents;
+}
+
+.shell.vertical-tabs .tabs-bar {
+  grid-column: 1;
+  grid-row: 1 / 4;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 4px;
+  border-bottom: 0;
+  border-right: 1px solid var(--vscode-panel-border);
+}
+
+.shell.vertical-tabs .tabs {
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.shell.vertical-tabs .tab-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+.shell.vertical-tabs .tab-actions .icon-button {
+  display: flex;
+  align-items: center;
+  width: auto;
+  height: 30px;
+  min-width: 0;
+  padding: 0 7px;
+  justify-content: flex-start;
+  gap: 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--vscode-tab-inactiveBackground);
+  color: var(--vscode-tab-inactiveForeground);
+  text-align: left;
+}
+
+.shell.vertical-tabs .tab-actions .icon-button:hover,
+.shell.vertical-tabs .tab-actions .icon-button.active {
+  border-color: var(--vscode-panel-border);
+  background: var(--vscode-tab-activeBackground);
+  color: var(--vscode-tab-activeForeground);
+}
+
+.tab-action-label {
+  display: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.shell.vertical-tabs .tab-action-label {
+  display: inline;
+}
+
+.shell.vertical-tabs .toolbar,
+.shell.vertical-tabs .content,
+.shell.vertical-tabs .footer-bar {
+  grid-column: 2;
+}
+
+.shell.vertical-tabs .toolbar {
+  grid-row: 1;
+}
+
+.shell.vertical-tabs .content {
+  grid-row: 2;
+}
+
+.shell.vertical-tabs .footer-bar {
+  grid-row: 3;
+}
+
+.shell.vertical-tabs .tab {
+  position: relative;
+  flex: 0 0 30px;
+  min-height: 30px;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.shell.vertical-tabs .tab.active {
+  border-color: var(--vscode-panel-border);
+}
+
+.shell.vertical-tabs .tab.drop-before {
+  box-shadow: inset 0 2px var(--vscode-focusBorder);
+}
+
+.shell.vertical-tabs .tab.drop-after {
+  box-shadow: inset 0 -2px var(--vscode-focusBorder);
+}
+
+.tab-icon {
+  display: inline-grid;
+  flex: 0 0 16px;
+  place-items: center;
+}
+
+.tab-icon .toolbar-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.tab-icon .file-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.shell:not(.vertical-tabs) .tab-icon {
+  display: none;
+}
+
+.shell:not(.vertical-tabs) #toggle-tab-rail-size {
+  display: none;
+}
+
+.shell.vertical-tabs.compact-tab-rail {
+  grid-template-columns: 40px minmax(0, 1fr);
+}
+
+.shell.vertical-tabs.compact-tab-rail .tabs-bar {
+  padding: 4px;
+}
+
+.shell.vertical-tabs.compact-tab-rail .tab-actions {
+  grid-template-columns: 1fr;
+}
+
+.shell.vertical-tabs.compact-tab-rail .tab-actions .icon-button {
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.shell.vertical-tabs.compact-tab-rail .tab-action-label,
+.shell.vertical-tabs.compact-tab-rail .tab-label {
+  display: none;
+}
+
+.shell.vertical-tabs.compact-tab-rail .tab {
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.shell.vertical-tabs.compact-tab-rail .tab-close {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: var(--vscode-tab-activeBackground);
+}
+
+.shell.vertical-tabs.compact-tab-rail .tab.active:hover .tab-icon,
+.shell.vertical-tabs.compact-tab-rail .tab.active:focus-within .tab-icon {
+  opacity: 0;
+}
+
+.shell.vertical-tabs.compact-tab-rail .tab.active:hover .tab-close,
+.shell.vertical-tabs.compact-tab-rail .tab.active:focus-within .tab-close {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .tab {
   display: flex;
   align-items: center;
@@ -1127,6 +1314,67 @@ body.sidebar-mode .tab {
 body.sidebar-mode .tab-close {
   flex: 0 0 auto;
   padding: 0 1px;
+}
+
+body.sidebar-mode .shell.vertical-tabs {
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) 22px;
+}
+
+body.sidebar-mode .shell.vertical-tabs .tabs-bar {
+  padding: 4px;
+}
+
+body.sidebar-mode .shell.vertical-tabs .tab-actions {
+  grid-template-columns: 1fr;
+}
+
+body.sidebar-mode .shell.vertical-tabs .tab-actions .icon-button {
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+body.sidebar-mode .shell.vertical-tabs #toggle-tab-rail-size {
+  display: none;
+}
+
+body.sidebar-mode .shell.vertical-tabs .tab-action-label {
+  display: none;
+}
+
+body.sidebar-mode .shell.vertical-tabs .tab {
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+body.sidebar-mode .shell.vertical-tabs .tab-label {
+  display: none;
+}
+
+body.sidebar-mode .shell.vertical-tabs .tab-close {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: var(--vscode-tab-activeBackground);
+}
+
+body.sidebar-mode .shell.vertical-tabs .tab.active:hover .tab-icon,
+body.sidebar-mode .shell.vertical-tabs .tab.active:focus-within .tab-icon {
+  opacity: 0;
+}
+
+body.sidebar-mode .shell.vertical-tabs .tab.active:hover .tab-close,
+body.sidebar-mode .shell.vertical-tabs .tab.active:focus-within .tab-close {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 body.sidebar-mode .toolbar {

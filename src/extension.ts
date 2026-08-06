@@ -167,6 +167,26 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
+  const toggleTabLayout = async (): Promise<void> => {
+    const configuration = vscode.workspace.getConfiguration("simpleFileExplorer");
+    const current = configuration.get<string>("tabLayout", "horizontal");
+    await configuration.update(
+      "tabLayout",
+      current === "vertical" ? "horizontal" : "vertical",
+      vscode.ConfigurationTarget.Global
+    );
+  };
+
+  const toggleVerticalTabRailSize = async (): Promise<void> => {
+    const configuration = vscode.workspace.getConfiguration("simpleFileExplorer");
+    const current = configuration.get<string>("verticalTabRailSize", "expanded");
+    await configuration.update(
+      "verticalTabRailSize",
+      current === "compact" ? "expanded" : "compact",
+      vscode.ConfigurationTarget.Global
+    );
+  };
+
   context.subscriptions.push(
     vscode.commands.registerCommand("workspaceFileExplorer.open", openExplorer),
     vscode.commands.registerCommand("workspaceFileExplorer.toggle", toggleExplorer),
@@ -211,6 +231,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("workspaceFileExplorer.toggleTiledTabs", () =>
       postWebviewCommand(openExplorer, "toggleTiledTabs")
     ),
+    vscode.commands.registerCommand("workspaceFileExplorer.toggleTabLayout", toggleTabLayout),
+    vscode.commands.registerCommand(
+      "workspaceFileExplorer.toggleVerticalTabRailSize",
+      toggleVerticalTabRailSize
+    ),
     vscode.commands.registerCommand("workspaceFileExplorer.toggleViewLocation", toggleViewLocation),
     vscode.commands.registerCommand(
       "workspaceFileExplorer.openFromExplorer",
@@ -246,6 +271,16 @@ export function activate(context: vscode.ExtensionContext): void {
         event.affectsConfiguration("simpleFileExplorer.iconThemeMode")
       ) {
         void refreshIconThemeForActiveWebviews(context);
+      }
+      if (event.affectsConfiguration("simpleFileExplorer.tabLayout")) {
+        const layout = getTabLayout();
+        activePanel?.webview.postMessage({ command: "tabLayoutChanged", layout });
+        activeSidebarView?.webview.postMessage({ command: "tabLayoutChanged", layout });
+      }
+      if (event.affectsConfiguration("simpleFileExplorer.verticalTabRailSize")) {
+        const size = getVerticalTabRailSize();
+        activePanel?.webview.postMessage({ command: "verticalTabRailSizeChanged", size });
+        activeSidebarView?.webview.postMessage({ command: "verticalTabRailSizeChanged", size });
       }
       if (event.affectsConfiguration("simpleFileExplorer.treeProbeChildFolders")) {
         const enabled = shouldProbeTreeChildFolders();
@@ -572,6 +607,12 @@ async function handleMessage(
       case "toggleViewLocation":
         await vscode.commands.executeCommand("workspaceFileExplorer.toggleViewLocation");
         break;
+      case "toggleTabLayout":
+        await vscode.commands.executeCommand("workspaceFileExplorer.toggleTabLayout");
+        break;
+      case "toggleVerticalTabRailSize":
+        await vscode.commands.executeCommand("workspaceFileExplorer.toggleVerticalTabRailSize");
+        break;
       case "search":
         await searchRecursively(
           panel,
@@ -717,6 +758,8 @@ async function sendInitialState(
     restoreWorkspaceSession,
     workspaceSession,
     viewKind: panel.viewKind,
+    tabLayout: getTabLayout(),
+    verticalTabRailSize: getVerticalTabRailSize(),
     revealInSystemAvailable: !vscode.env.remoteName,
     recentLocations: readRecentLocations(context),
     favoriteLocations: readFavoriteLocations(context),
@@ -724,6 +767,22 @@ async function sendInitialState(
     preferredTreeExpandedPaths: context.globalState.get<string[]>("preferredTreeExpandedPaths", []),
     treeProbeChildFolders: shouldProbeTreeChildFolders()
   });
+}
+
+function getTabLayout(): "horizontal" | "vertical" {
+  return vscode.workspace
+    .getConfiguration("simpleFileExplorer")
+    .get<string>("tabLayout", "horizontal") === "vertical"
+    ? "vertical"
+    : "horizontal";
+}
+
+function getVerticalTabRailSize(): "expanded" | "compact" {
+  return vscode.workspace
+    .getConfiguration("simpleFileExplorer")
+    .get<string>("verticalTabRailSize", "expanded") === "compact"
+    ? "compact"
+    : "expanded";
 }
 
 function shouldProbeTreeChildFolders(): boolean {
