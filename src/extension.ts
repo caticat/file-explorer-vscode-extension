@@ -485,6 +485,9 @@ async function handleMessage(
         await sendPendingNavigation(panel);
         break;
       case "savePreferences":
+        if (typeof message.showHidden === "boolean") {
+          await context.globalState.update("preferredShowHidden", message.showHidden);
+        }
         if (message.viewMode === "list" || message.viewMode === "grid") {
           await context.globalState.update("preferredViewMode", message.viewMode);
         }
@@ -741,6 +744,7 @@ async function sendInitialState(
     workspaceRoots,
     pathSeparator: path.sep,
     platform: process.platform,
+    preferredShowHidden: context.globalState.get<boolean>("preferredShowHidden", false),
     preferredViewMode: context.globalState.get<"list" | "grid">(
       "preferredViewMode",
       "list"

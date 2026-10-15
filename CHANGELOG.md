@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.2.16
+
+- Remember the Show hidden files preference for new tabs and when reopening
+  the explorer, including the sidebar and tiled-pane controls.
+
 ## 0.2.15
 
 - Added a configurable vertical tab rail alongside the original horizontal

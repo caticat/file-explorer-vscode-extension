@@ -150,6 +150,7 @@ let pathSeparator = "/";
 let platform = "linux";
 let viewKind: "editor" | "sidebar" = "editor";
 let preferredViewMode: ExplorerTab["viewMode"] = "list";
+let preferredShowHidden = false;
 let tabLayout: "horizontal" | "vertical" = "horizontal";
 let verticalTabRailSize: "expanded" | "compact" = "expanded";
 let preferredRecursiveSearch = false;
@@ -751,6 +752,7 @@ function handleHostMessage(message: Record<string, unknown>): void {
       );
       preferredViewMode =
         message.preferredViewMode === "grid" ? "grid" : "list";
+      preferredShowHidden = message.preferredShowHidden === true;
       tabLayout = message.tabLayout === "vertical" ? "vertical" : "horizontal";
       verticalTabRailSize = message.verticalTabRailSize === "compact" ? "compact" : "expanded";
       preferredRecursiveSearch = message.preferredRecursiveSearch === true;
@@ -1139,7 +1141,7 @@ function createTabModel(tabPath: string): ExplorerTab {
     pendingRevealPath: undefined,
     selectedPaths: [],
     selectionAnchorPath: undefined,
-    showHidden: false,
+    showHidden: preferredShowHidden,
     pendingRecentLocation: tabPath,
     sortKey: preferredSortState.sortKey,
     sortDirection: preferredSortState.sortDirection
@@ -1491,6 +1493,8 @@ function setAllTabsViewMode(viewMode: ExplorerTab["viewMode"]): void {
 
 function toggleAllHiddenFiles(): void {
   const showHidden = !activeTab().showHidden;
+  preferredShowHidden = showHidden;
+  vscode.postMessage({ command: "savePreferences", showHidden });
   for (const tab of tabs) {
     tab.showHidden = showHidden;
     applyLocalFilter(tab);
@@ -1513,6 +1517,8 @@ function toggleListColumn(column: keyof ListColumnPreferences): void {
 function toggleHiddenFiles(): void {
   const tab = activeTab();
   tab.showHidden = !tab.showHidden;
+  preferredShowHidden = tab.showHidden;
+  vscode.postMessage({ command: "savePreferences", showHidden: preferredShowHidden });
   applyLocalFilter(tab);
   if (tab.recursiveSearch && tab.searchQuery) runSearch();
   scheduleRender();
