@@ -355,9 +355,9 @@ app.innerHTML = `
       </aside>
       <main class="main-pane">
         <div id="list-header" class="list-header">
-          <button data-sort="name">Name</button>
-          <button data-sort="modified">Modified</button>
-          <button data-sort="size">Size</button>
+          <button data-sort="name"><span class="list-header-label">Name</span></button>
+          <button data-sort="modified"><span class="list-header-label">Modified</span></button>
+          <button data-sort="size"><span class="list-header-label">Size</span></button>
         </div>
         <div id="viewport" class="viewport" tabindex="0">
           <div id="spacer" class="spacer"></div>
@@ -374,30 +374,32 @@ app.innerHTML = `
     </div>
   </div>
   <div id="context-menu" class="context-menu hidden" role="menu">
-    <button id="new-file-menu" role="menuitem">New File</button>
-    <button id="new-folder-menu" role="menuitem">New Folder</button>
-    <button id="refresh-menu" role="menuitem">Refresh</button>
+    <button id="new-file-menu" role="menuitem"><span class="menu-label">New File</span></button>
+    <button id="new-folder-menu" role="menuitem"><span class="menu-label">New Folder</span></button>
+    <button id="refresh-menu" role="menuitem" data-shortcut="refresh"><span class="menu-label">Refresh</span><span class="menu-shortcut"></span></button>
     <div id="create-menu-separator" class="menu-separator"></div>
-    <button id="reveal-system" role="menuitem">Reveal in System File Manager</button>
-    <button id="open-external-app" role="menuitem">Open in External App</button>
-    <button id="show-in-explorer" role="menuitem">Show in Simple File Explorer</button>
+    <button id="open-in-new-tab" role="menuitem"><span class="menu-label">Open in New Tab</span></button>
+    <button id="reveal-system" role="menuitem"><span class="menu-label">Reveal in System File Manager</span></button>
+    <button id="open-external-app" role="menuitem"><span class="menu-label">Open in External App</span></button>
+    <button id="show-in-explorer" role="menuitem"><span class="menu-label">Show in Simple File Explorer</span></button>
     <div id="item-menu-separator" class="menu-separator"></div>
-    <button id="open-terminal-here" role="menuitem">Open Terminal Here</button>
+    <button id="open-terminal-here" role="menuitem"><span class="menu-label">Open Terminal Here</span></button>
     <div id="location-menu-separator" class="menu-separator"></div>
-    <button id="copy-name" role="menuitem">Copy Name</button>
-    <button id="copy-path" role="menuitem">Copy Path</button>
-    <button id="copy-relative-path" role="menuitem">Copy Relative Path</button>
-    <button id="copy-directory-path" role="menuitem">Copy Folder Path</button>
-    <button id="copy-relative-directory-path" role="menuitem">Copy Relative Folder Path</button>
+    <button id="copy-name" role="menuitem"><span class="menu-label">Copy Name</span></button>
+    <button id="copy-path" role="menuitem"><span class="menu-label">Copy Path</span></button>
+    <button id="copy-relative-path" role="menuitem"><span class="menu-label">Copy Relative Path</span></button>
+    <button id="copy-directory-path" role="menuitem"><span class="menu-label">Copy Folder Path</span></button>
+    <button id="copy-relative-directory-path" role="menuitem"><span class="menu-label">Copy Relative Folder Path</span></button>
     <div id="path-menu-separator" class="menu-separator"></div>
-    <button id="rename-item" role="menuitem">Rename</button>
-    <button id="copy-items" role="menuitem">Copy</button>
-    <button id="cut-items" role="menuitem">Cut</button>
-    <button id="paste-items" role="menuitem">Paste</button>
-    <button id="delete-items" role="menuitem">Move to Trash</button>
+    <button id="rename-item" role="menuitem" data-shortcut="rename"><span class="menu-label">Rename</span><span class="menu-shortcut"></span></button>
+    <button id="copy-items" role="menuitem" data-shortcut="copy"><span class="menu-label">Copy</span><span class="menu-shortcut"></span></button>
+    <button id="cut-items" role="menuitem" data-shortcut="cut"><span class="menu-label">Cut</span><span class="menu-shortcut"></span></button>
+    <button id="paste-items" role="menuitem" data-shortcut="paste"><span class="menu-label">Paste</span><span class="menu-shortcut"></span></button>
+    <button id="delete-items" role="menuitem" data-shortcut="delete"><span class="menu-label">Move to Trash</span><span class="menu-shortcut"></span></button>
+    <button id="delete-items-permanent" role="menuitem" data-shortcut="deletePermanent"><span class="menu-label">Delete Permanently</span><span class="menu-shortcut"></span></button>
     <div id="view-menu-separator" class="menu-separator"></div>
-    <button id="toggle-modified-column-menu" role="menuitemcheckbox" aria-checked="true">Show Modified</button>
-    <button id="toggle-size-column-menu" role="menuitemcheckbox" aria-checked="true">Show Size</button>
+    <button id="toggle-modified-column-menu" role="menuitemcheckbox" aria-checked="true"><span class="menu-label">Show Modified</span></button>
+    <button id="toggle-size-column-menu" role="menuitemcheckbox" aria-checked="true"><span class="menu-label">Show Size</span></button>
   </div>
   <div id="recent-locations-menu" class="recent-locations-menu hidden" role="menu"></div>
 `;
@@ -458,6 +460,7 @@ const elements = {
   newFolderMenu: button("new-folder-menu"),
   refreshMenu: button("refresh-menu"),
   createMenuSeparator: byId("create-menu-separator"),
+  openInNewTab: button("open-in-new-tab"),
   revealSystem: button("reveal-system"),
   openExternalApp: button("open-external-app"),
   showInExplorer: button("show-in-explorer"),
@@ -475,6 +478,7 @@ const elements = {
   cutItems: button("cut-items"),
   pasteItems: button("paste-items"),
   deleteItems: button("delete-items"),
+  deleteItemsPermanent: button("delete-items-permanent"),
   viewMenuSeparator: byId("view-menu-separator"),
   toggleModifiedColumnMenu: button("toggle-modified-column-menu"),
   toggleSizeColumnMenu: button("toggle-size-column-menu")
@@ -576,6 +580,7 @@ elements.contextMenu.addEventListener("pointerdown", (event) => {
 elements.contextMenu.addEventListener("click", (event) => {
   event.stopPropagation();
 });
+elements.openInNewTab.addEventListener("click", () => runContextMenuAction(openContextItemInNewTab));
 elements.revealSystem.addEventListener("click", () => {
   if (contextMenuItem) {
     vscode.postMessage({ command: "revealInSystem", path: contextMenuItem.path });
@@ -608,6 +613,7 @@ elements.copyItems.addEventListener("click", () => runContextMenuAction(() => co
 elements.cutItems.addEventListener("click", () => runContextMenuAction(() => copySelection(true)));
 elements.pasteItems.addEventListener("click", () => runContextMenuAction(pasteClipboard));
 elements.deleteItems.addEventListener("click", () => runContextMenuAction(() => deleteSelection(false)));
+elements.deleteItemsPermanent.addEventListener("click", () => runContextMenuAction(() => deleteSelection(true)));
 elements.toggleModifiedColumnMenu.addEventListener("click", () => runContextMenuAction(() => toggleListColumn("modified")));
 elements.toggleSizeColumnMenu.addEventListener("click", () => runContextMenuAction(() => toggleListColumn("size")));
 elements.listHeader.addEventListener("click", (event) => {
@@ -1112,8 +1118,14 @@ function restoreOrCreateInitialTab(workspaceSession?: WorkspaceSession): void {
   saveState();
 }
 
-function createTab(tabPath: string): void {
+function createTab(tabPath: string, revealPath?: string): void {
   const tab = createTabModel(tabPath);
+  if (revealPath) {
+    tab.pendingRevealPath = revealPath;
+    tab.selectedPath = revealPath;
+    tab.selectedPaths = [revealPath];
+    tab.selectionAnchorPath = revealPath;
+  }
   tabs.push(tab);
   activeTabId = tab.id;
   syncDirectoryWatchers();
@@ -1537,7 +1549,7 @@ function render(): void {
   if (!tabs.length) return;
   const tab = activeTab();
   const shell = document.querySelector(".shell");
-  const paneMode = layoutMode === "panes" && viewKind === "editor";
+  const paneMode = isPaneMode();
   shell?.classList.toggle("grid-mode", !paneMode && tab.viewMode === "grid");
   shell?.classList.toggle("tree-visible", !paneMode && viewKind === "editor" && treeVisible);
   shell?.classList.toggle("pane-mode", paneMode);
@@ -1600,6 +1612,7 @@ function render(): void {
 }
 
 function renderTabs(): void {
+  const displayLabels = tabDisplayLabels();
   elements.tabs.replaceChildren(
     ...tabs.map((tab) => {
       const tabElement = document.createElement("button");
@@ -1649,7 +1662,7 @@ function renderTabs(): void {
       });
 
       const label = document.createElement("span");
-      label.textContent = tab.title;
+      label.textContent = displayLabels.get(tab.id) ?? tab.title;
       label.className = "tab-label";
       const icon = document.createElement("span");
       icon.className = "tab-icon";
@@ -1663,8 +1676,9 @@ function renderTabs(): void {
       tabElement.append(label);
 
       const close = document.createElement("span");
-      close.textContent = "×";
       close.className = "tab-close";
+      close.title = "Close tab";
+      close.innerHTML = toolbarIcon("M4.5 4.5l7 7M11.5 4.5l-7 7");
       close.addEventListener("click", (event) => {
         event.stopPropagation();
         closeTab(tab.id);
@@ -1673,6 +1687,30 @@ function renderTabs(): void {
       return tabElement;
     })
   );
+}
+
+function tabDisplayLabels(): Map<string, string> {
+  const counts = new Map<string, number>();
+  for (const tab of tabs) {
+    const key = tab.title.toLocaleLowerCase();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const labels = new Map<string, string>();
+  for (const tab of tabs) {
+    const duplicated = (counts.get(tab.title.toLocaleLowerCase()) ?? 0) > 1;
+    const parentName =
+      duplicated && !isVirtualDrivesPath(tab.path) ? basename(dirname(tab.path)) : "";
+    labels.set(
+      tab.id,
+      parentName && parentName !== tab.title ? `${tab.title} — ${parentName}` : tab.title
+    );
+  }
+  return labels;
+}
+
+function isPaneMode(): boolean {
+  return layoutMode === "panes" && viewKind === "editor";
 }
 
 function isVerticalTabLayout(): boolean {
@@ -2166,7 +2204,9 @@ function appendTreeNode(
 
   const toggle = document.createElement("span");
   toggle.className = `tree-toggle${canExpand ? "" : " empty"}`;
-  toggle.textContent = canExpand ? (node.expanded ? "⌄" : "›") : "";
+  if (canExpand) {
+    toggle.innerHTML = toolbarIcon(node.expanded ? "M4 6l4 4 4-4" : "M6 4l4 4-4 4");
+  }
   toggle.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -2201,7 +2241,7 @@ function appendTreeNode(
     const loading = document.createElement("div");
     loading.className = "tree-message";
     loading.style.setProperty("--tree-depth", String(depth + 1));
-    loading.textContent = "Loading...";
+    loading.textContent = "Loading…";
     nodes.push(loading);
   }
 
@@ -2339,8 +2379,41 @@ function updateListColumnMenu(): void {
 }
 
 function setMenuCheckbox(buttonElement: HTMLButtonElement, checked: boolean, label: string): void {
-  buttonElement.textContent = `${checked ? "✓ " : ""}${label}`;
+  setMenuLabel(buttonElement, `${checked ? "✓ " : ""}${label}`);
   buttonElement.setAttribute("aria-checked", String(checked));
+}
+
+function setMenuLabel(buttonElement: HTMLElement, text: string): void {
+  const label = buttonElement.querySelector<HTMLElement>(".menu-label");
+  if (label) {
+    label.textContent = text;
+  } else {
+    buttonElement.textContent = text;
+  }
+}
+
+function updateContextMenuShortcuts(): void {
+  const primary = platform === "darwin" ? "⌘" : "Ctrl+";
+  const deleteKey = platform === "darwin" ? "⌫" : "Del";
+  const labels: Record<string, string> = {
+    refresh: "F5",
+    rename: "F2",
+    copy: `${primary}C`,
+    cut: `${primary}X`,
+    paste: `${primary}V`,
+    delete: deleteKey,
+    deletePermanent: `Shift+${deleteKey}`
+  };
+
+  for (const buttonElement of Array.from(
+    elements.contextMenu.querySelectorAll<HTMLElement>("button[data-shortcut]")
+  )) {
+    const shortcut = buttonElement.dataset.shortcut;
+    const target = buttonElement.querySelector<HTMLElement>(".menu-shortcut");
+    if (target && shortcut) {
+      target.textContent = labels[shortcut] ?? "";
+    }
+  }
 }
 
 function renderPaneGrid(): void {
@@ -2760,33 +2833,59 @@ function paneActionSeparator(): HTMLElement {
 function createPaneListHeader(tab: ExplorerTab): HTMLElement {
   const header = document.createElement("div");
   header.className = `list-header pane-list-header ${tab.viewMode === "list" ? "" : "hidden"}`;
-  for (const [key, label] of [
-    ["name", "Name"],
-    ["modified", "Modified"],
-    ["size", "Size"]
-  ] as Array<[ExplorerTab["sortKey"], string]>) {
+  for (const key of ["name", "modified", "size"] as Array<ExplorerTab["sortKey"]>) {
     const buttonElement = document.createElement("button");
     buttonElement.dataset.sort = key;
-    buttonElement.classList.toggle("active", key === tab.sortKey);
-    buttonElement.textContent = `${label}${key === tab.sortKey ? (tab.sortDirection === "asc" ? " ↑" : " ↓") : ""}`;
     buttonElement.addEventListener("click", () => {
       focusTab(tab.id);
       changeSort(key);
     });
     header.append(buttonElement);
   }
+  updateListHeaderSortState(header, tab);
   return header;
 }
+
+const LIST_COLUMN_LABELS: Record<ExplorerTab["sortKey"], string> = {
+  name: "Name",
+  modified: "Modified",
+  size: "Size"
+};
 
 function updateListHeaderSortState(headerElement: HTMLElement, tab: ExplorerTab): void {
   for (const header of Array.from(
     headerElement.querySelectorAll<HTMLButtonElement>("button[data-sort]")
   )) {
-    const active = header.dataset.sort === tab.sortKey;
+    const sortKey = header.dataset.sort as ExplorerTab["sortKey"] | undefined;
+    const columnLabel = sortKey ? LIST_COLUMN_LABELS[sortKey] : undefined;
+    if (!sortKey || !columnLabel) continue;
+
+    const active = sortKey === tab.sortKey;
     header.classList.toggle("active", active);
-    header.textContent = `${header.dataset.sort === "name" ? "Name" : header.dataset.sort === "modified" ? "Modified" : "Size"}${
-      active ? (tab.sortDirection === "asc" ? " ↑" : " ↓") : ""
-    }`;
+
+    // render() runs on every scroll frame, so only rebuild the header content
+    // when the sort state that it displays actually changed.
+    const signature = `${sortKey}\u0000${active ? tab.sortDirection : ""}`;
+    if (header.dataset.sortSignature === signature) continue;
+    header.dataset.sortSignature = signature;
+
+    const label = document.createElement("span");
+    label.className = "list-header-label";
+    label.textContent = columnLabel;
+
+    const nodes: Node[] = [label];
+    if (active) {
+      const arrow = document.createElement("span");
+      arrow.className = "list-header-sort";
+      arrow.innerHTML = toolbarIcon(
+        tab.sortDirection === "asc" ? "M4 10l4-4 4 4" : "M4 6l4 4 4-4"
+      );
+      nodes.push(arrow);
+    }
+    header.replaceChildren(...nodes);
+    header.title = active
+      ? `Sorted by ${columnLabel.toLocaleLowerCase()}, ${tab.sortDirection === "asc" ? "ascending" : "descending"}`
+      : `Sort by ${columnLabel.toLocaleLowerCase()}`;
   }
 }
 
@@ -2834,6 +2933,7 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
     target.items.replaceChildren(...visible.map((item) => createItemElement(item, tab)));
   }
   syncItemSelectionClasses(tab, target.items);
+  syncItemCutClasses(target.items);
 
   const needsMetadata = isVirtualDrivesPath(tab.path)
     ? []
@@ -2845,13 +2945,76 @@ function renderVirtualItemsInto(tab: ExplorerTab, target: PaneRenderElements): v
 
   const showEmpty = !tab.loading && data.length === 0;
   target.empty.classList.toggle("hidden", !showEmpty);
-  target.empty.textContent = isVirtualDrivesPath(tab.path)
+  if (showEmpty) {
+    renderEmptyState(target, tab);
+  }
+}
+
+function renderEmptyState(target: PaneRenderElements, tab: ExplorerTab): void {
+  const virtualDrives = isVirtualDrivesPath(tab.path);
+  const message = virtualDrives
     ? "No available drives."
     : emptyStateMessage(tab.items, {
         showHidden: tab.showHidden,
         searchQuery: tab.searchQuery,
         recursiveSearch: tab.recursiveSearch
       });
+  const offerRecursiveSearch =
+    !virtualDrives &&
+    !tab.recursiveSearch &&
+    tab.searchQuery.length > 0 &&
+    tab.filteredItems.length === 0;
+  const signature = `${tab.id}\u0000${message}\u0000${offerRecursiveSearch ? "1" : "0"}`;
+  if (target.empty.dataset.contentSignature === signature) return;
+  target.empty.dataset.contentSignature = signature;
+
+  const content = document.createElement("div");
+  content.className = "empty-content";
+
+  const messageElement = document.createElement("span");
+  messageElement.className = "empty-message";
+  messageElement.textContent = message;
+  content.append(messageElement);
+
+  if (offerRecursiveSearch) {
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "empty-action";
+    action.textContent = "Search subfolders";
+    action.title = "Include subfolders in this search";
+    action.addEventListener("click", () => enableRecursiveSearch(tab));
+    content.append(action);
+  }
+
+  target.empty.replaceChildren(content);
+}
+
+function enableRecursiveSearch(tab: ExplorerTab): void {
+  if (isVirtualDrivesPath(tab.path)) return;
+
+  if (isPaneMode()) {
+    if (tab.recursiveSearch) return;
+    tab.recursiveSearch = true;
+    if (tab.searchQuery) {
+      runSearchForTab(tab, tab.searchQuery);
+    } else {
+      scheduleRender();
+    }
+    return;
+  }
+
+  if (preferredRecursiveSearch && activeTab().recursiveSearch) return;
+  preferredRecursiveSearch = true;
+  for (const candidate of tabs) {
+    candidate.recursiveSearch = true;
+  }
+  vscode.postMessage({ command: "savePreferences", recursiveSearch: true });
+  updateRecursiveSearchButton(activeTab());
+  if (activeTab().searchQuery) {
+    runSearch();
+  } else {
+    scheduleRender();
+  }
 }
 
 function listRowHeight(): number {
@@ -2939,6 +3102,19 @@ function syncItemSelectionClasses(tab: ExplorerTab, itemsElement: HTMLElement): 
     element.classList.toggle(
       "selected",
       itemPath !== undefined && selected.has(normalizeForComparison(itemPath))
+    );
+  });
+}
+
+function syncItemCutClasses(itemsElement: HTMLElement): void {
+  const cut = clipboardCut
+    ? new Set(clipboardPaths.map((itemPath) => normalizeForComparison(itemPath)))
+    : undefined;
+  itemsElement.querySelectorAll<HTMLElement>(".file-item[data-path]").forEach((element) => {
+    const itemPath = element.dataset.path;
+    element.classList.toggle(
+      "cut",
+      cut !== undefined && itemPath !== undefined && cut.has(normalizeForComparison(itemPath))
     );
   });
 }
@@ -3207,6 +3383,7 @@ function showContextMenu(
     virtualDrives || !itemMenu || !revealInSystemAvailable || item?.isDirectory === true
   );
   elements.showInExplorer.classList.toggle("hidden", virtualDrives || !itemMenu || !allowShowInExplorer);
+  elements.openInNewTab.classList.toggle("hidden", virtualDrives || !itemMenu || isPaneMode());
   elements.openTerminalHere.classList.toggle("hidden", virtualDrives);
   elements.copyName.classList.toggle("hidden", !itemMenu);
   elements.copyDirectoryPath.classList.toggle("hidden", virtualDrives || !itemMenu || item?.isDirectory === true);
@@ -3215,17 +3392,22 @@ function showContextMenu(
   elements.copyItems.classList.toggle("hidden", virtualDrives || !itemMenu);
   elements.cutItems.classList.toggle("hidden", virtualDrives || !itemMenu);
   elements.deleteItems.classList.toggle("hidden", virtualDrives || !itemMenu);
+  elements.deleteItemsPermanent.classList.toggle("hidden", virtualDrives || !itemMenu);
   elements.pasteItems.classList.toggle("hidden", virtualDrives || searchResultItem);
   elements.renameItem.disabled = virtualDrives || !itemMenu || activeTab().selectedPaths.length !== 1;
   elements.pasteItems.disabled = clipboardPaths.length === 0;
   elements.copyPath.classList.toggle("hidden", virtualDrives && !itemMenu);
   elements.copyRelativePath.classList.toggle("hidden", virtualDrives);
-  elements.copyPath.textContent = itemMenu ? "Copy Path" : "Copy Current Folder Path";
-  elements.copyRelativePath.textContent = itemMenu ? "Copy Relative Path" : "Copy Current Folder Relative Path";
+  setMenuLabel(elements.copyPath, itemMenu ? "Copy Path" : "Copy Current Folder Path");
+  setMenuLabel(
+    elements.copyRelativePath,
+    itemMenu ? "Copy Relative Path" : "Copy Current Folder Relative Path"
+  );
   const showListColumnOptions = activeTab().viewMode === "list";
   elements.toggleModifiedColumnMenu.classList.toggle("hidden", !showListColumnOptions);
   elements.toggleSizeColumnMenu.classList.toggle("hidden", !showListColumnOptions);
   updateListColumnMenu();
+  updateContextMenuShortcuts();
   updateContextMenuSeparators();
   elements.contextMenu.classList.remove("hidden");
 
@@ -3255,6 +3437,7 @@ function updateContextMenuSeparators(): void {
     elements.newFolderMenu,
     elements.refreshMenu
   ], [
+    elements.openInNewTab,
     elements.revealSystem,
     elements.openExternalApp,
     elements.showInExplorer,
@@ -3264,6 +3447,7 @@ function updateContextMenuSeparators(): void {
     elements.copyRelativePath
   ]);
   updateSeparatorVisibility(elements.itemMenuSeparator, [
+    elements.openInNewTab,
     elements.revealSystem,
     elements.openExternalApp,
     elements.showInExplorer
@@ -3293,14 +3477,16 @@ function updateContextMenuSeparators(): void {
     elements.copyItems,
     elements.cutItems,
     elements.pasteItems,
-    elements.deleteItems
+    elements.deleteItems,
+    elements.deleteItemsPermanent
   ]);
   updateSeparatorVisibility(elements.viewMenuSeparator, [
     elements.renameItem,
     elements.copyItems,
     elements.cutItems,
     elements.pasteItems,
-    elements.deleteItems
+    elements.deleteItems,
+    elements.deleteItemsPermanent
   ], [
     elements.toggleModifiedColumnMenu,
     elements.toggleSizeColumnMenu
@@ -3335,6 +3521,16 @@ function runContextMenuAction(action: () => void): void {
 function showItemInExplorer(item: DirectoryItem): void {
   const parentPath = dirname(item.path);
   navigate(parentPath, true, item.path);
+}
+
+function openContextItemInNewTab(): void {
+  const item = contextMenuItem;
+  if (!item) return;
+  if (item.isDirectory) {
+    createTab(item.path);
+    return;
+  }
+  createTab(dirname(item.path), item.path);
 }
 
 function contextMenuPath(): string {

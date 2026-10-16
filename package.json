@@ -2,7 +2,7 @@
   "name": "workspace-file-explorer",
   "displayName": "Simple File Explorer",
   "description": "A Windows Explorer-style file manager for VS Code with tabs, tiled panes, fast search, and Remote SSH support.",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "publisher": "panjie039",
   "repository": {
     "type": "git",
@@ -258,6 +258,10 @@
             "editor",
             "sidebar"
           ],
+          "enumDescriptions": [
+            "Open as a full editor tab.",
+            "Open in the Activity Bar sidebar."
+          ],
           "default": "editor",
           "description": "Choose where Simple File Explorer opens. Use editor for the full editor-tab view, or sidebar for the Activity Bar view."
         },
@@ -266,6 +270,10 @@
           "enum": [
             "horizontal",
             "vertical"
+          ],
+          "enumDescriptions": [
+            "Show file tabs in a row above the explorer.",
+            "Show file tabs in a vertical rail."
           ],
           "default": "horizontal",
           "description": "Choose whether file tabs appear above the explorer or in a vertical rail. Vertical tabs are hidden while editor tiled panes are active."
@@ -276,6 +284,10 @@
             "expanded",
             "compact"
           ],
+          "enumDescriptions": [
+            "Show folder names next to the icons.",
+            "Show icons only."
+          ],
           "default": "expanded",
           "description": "Choose whether vertical tabs show names or use a compact icon rail. Sidebar vertical tabs always use the compact rail."
         },
@@ -284,6 +296,10 @@
           "enum": [
             "auto",
             "codicon"
+          ],
+          "enumDescriptions": [
+            "Reuse the current VS Code file icon theme when possible.",
+            "Always use the built-in Codicon fallback icons."
           ],
           "default": "auto",
           "description": "Choose file and folder icons. Use auto to reuse the current VS Code file icon theme when possible, or codicon to always use the built-in fallback icons."
@@ -306,7 +322,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
-    "@types/vscode": "^1.134.0",
+    "@types/vscode": "~1.100.0",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.0"
   }

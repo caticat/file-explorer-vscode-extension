@@ -132,6 +132,10 @@ cases, usability, and platform support.
 ### Tabs, panes, and views
 
 - Supports multiple independent file tabs with drag-and-drop tab ordering.
+- Opens a folder in a new tab from the item context menu with
+  **Open in New Tab**; for a file, the new tab opens its containing folder with
+  the file selected.
+- Adds the parent folder name to tabs that share the same folder name.
 - Lets you switch between horizontal tabs and a vertical tab rail. Vertical
   tabs reuse the active VS Code folder icon theme; the editor rail can show
   names or become compact, while sidebar stays compact. Hover the active icon
@@ -176,6 +180,8 @@ cases, usability, and platform support.
   file at once.
 - De-duplicates and concurrency-limits metadata reads.
 - Supports current-folder filtering and cancellable recursive filename search.
+  When a current-folder search finds nothing, the empty view offers a
+  **Search subfolders** button.
 - Reuses safe directory names from VS Code `search.exclude` and `files.exclude`
   for recursive-search exclusions.
 - Persists recursive-search mode and supports basic filename wildcards:
@@ -188,7 +194,10 @@ cases, usability, and platform support.
 ### File operations and selection
 
 - Creates files and folders, renames items, moves items to trash, permanently
-  deletes items, and copies, cuts, and pastes files.
+  deletes items, and copies, cuts, and pastes files. Both **Move to Trash** and
+  **Delete Permanently** are available from the item context menu.
+- Dims cut items until they are pasted.
+- Shows keyboard shortcuts next to context-menu actions.
 - Opens and focuses newly created files automatically.
 - Selects all newly pasted items together after multi-item paste operations.
 - Shows VS Code progress notifications for longer copy, move, trash, and
@@ -440,6 +449,9 @@ Simple File Explorer 更接近文件管理器工作流：
 ### 页签、平铺和视图
 
 - 支持多个独立文件页签，并可拖动调整页签顺序。
+- 右键菜单 **Open in New Tab** 可在新页签中打开文件夹；对文件使用时，会在新页签
+  打开其所在目录并选中该文件。
+- 多个页签文件夹名称相同时，会附带显示上级目录名以便区分。
 - 可在顶部横向页签和左侧竖向页签栏之间切换。竖向页签会复用当前 VS Code
   文件图标主题中的文件夹图标；editor 可显示名称或切换为紧凑图标栏，sidebar
   始终保持紧凑。悬停活动图标可关闭页签，点击其他图标会切换文件夹。
@@ -470,7 +482,8 @@ Simple File Explorer 更接近文件管理器工作流：
 - 大目录使用流式读取和虚拟滚动。
 - 优先加载可见区域元数据，不会一次性对所有文件执行 `stat`。
 - 元数据读取会去重并限制并发，降低大目录浏览时的文件系统压力。
-- 支持当前目录搜索和可取消的递归文件名搜索。
+- 支持当前目录搜索和可取消的递归文件名搜索。当前目录搜索无结果时，空白区域会
+  提供 **Search subfolders** 按钮，一键改为搜索子文件夹。
 - 递归搜索会复用 VS Code `search.exclude` 和 `files.exclude` 中可安全识别的目录排除规则。
 - 递归搜索模式会跨目录、页签和 VS Code 启动保留。
 - 文件名搜索支持基础通配符：`*` 匹配任意字符，`?` 匹配单个字符。
@@ -480,6 +493,9 @@ Simple File Explorer 更接近文件管理器工作流：
 ### 文件操作和选择
 
 - 支持新建文件、新建文件夹、重命名、删除到回收站、永久删除、复制、剪切和粘贴。
+  右键菜单同时提供 **Move to Trash** 和 **Delete Permanently**。
+- 剪切的文件会变暗显示，直到粘贴完成。
+- 右键菜单会在操作旁显示对应的快捷键。
 - 新建文件后会自动打开并聚焦。
 - 粘贴多个文件后会同时选中新生成的内容。
 - 复制、移动、删除到回收站和永久删除会显示 VS Code 进度提示。

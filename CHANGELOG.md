@@ -1,5 +1,22 @@
 # Change Log
 
+## 0.2.17
+
+- Added **Open in New Tab** to file and folder context menus. Folders open
+  in a new tab; files open their containing folder with the file selected.
+- Added **Delete Permanently** to the item context menu, alongside the
+  existing `Shift+Delete` shortcut. It still asks for confirmation.
+- Context menu items now show their keyboard shortcuts.
+- Cut items are dimmed until they are pasted.
+- Tabs that share a folder name now show the parent folder name too.
+- When a search in the current folder finds nothing, the empty view offers a
+  **Search subfolders** button.
+- Replaced the text tab close, tree arrow, and sort direction characters with
+  matching line icons, and right-aligned the size column.
+- Added descriptions for each option of the enum settings.
+- Align VS Code API types with the supported 1.100 minimum version and use
+  the extension image for the editor tab icon to keep packaging compatible.
+
 ## 0.2.16
 
 - Remember the Show hidden files preference for new tabs and when reopening

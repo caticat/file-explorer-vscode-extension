@@ -384,9 +384,16 @@ button {
   position: absolute;
   left: calc(8px + var(--tree-depth) * 14px);
   flex: none;
+  display: inline-grid;
+  place-items: center;
   width: 16px;
   color: var(--vscode-icon-foreground);
   text-align: center;
+}
+
+.tree-toggle .toolbar-icon {
+  width: 12px;
+  height: 12px;
 }
 
 .tree-toggle.empty {
@@ -654,10 +661,17 @@ button {
 }
 
 .tab-close {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
   opacity: 0;
-  font-size: 16px;
   border-radius: 3px;
-  padding: 0 2px;
+  padding: 2px;
+}
+
+.tab-close .toolbar-icon {
+  width: 12px;
+  height: 12px;
 }
 
 .tab.active .tab-close,
@@ -943,13 +957,40 @@ body.hide-modified-column.hide-size-column .list-header {
 }
 
 .list-header button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   height: 100%;
+  min-width: 0;
   padding: 0 4px;
   border-radius: 3px;
   background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.list-header button[data-sort="size"] {
+  justify-content: flex-end;
+  padding-right: 0;
+}
+
+.list-header-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-header-sort {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+}
+
+.list-header-sort .toolbar-icon {
+  width: 12px;
+  height: 12px;
 }
 
 .list-header button:hover,
@@ -1052,6 +1093,11 @@ body.hide-modified-column.hide-size-column .file-item.list {
   background: var(--vscode-list-activeSelectionBackground);
 }
 
+.file-item.cut .file-name,
+.file-item.cut .file-icon {
+  opacity: 0.45;
+}
+
 .file-item:focus {
   outline: 1px solid var(--vscode-focusBorder);
   outline-offset: -1px;
@@ -1126,6 +1172,10 @@ body.hide-modified-column.hide-size-column .file-item.list {
   font-size: 12px;
 }
 
+.file-size {
+  text-align: right;
+}
+
 body.hide-modified-column .list-header button[data-sort="modified"],
 body.hide-modified-column .file-modified,
 body.hide-size-column .list-header button[data-sort="size"],
@@ -1138,7 +1188,31 @@ body.hide-size-column .file-size {
   inset: 0;
   display: grid;
   place-items: center;
+  padding: 12px;
   color: var(--vscode-descriptionForeground);
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 320px;
+  text-align: center;
+}
+
+.empty-action {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 4px;
+  background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+  cursor: pointer;
+}
+
+.empty-action:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
 }
 
 .context-menu {
@@ -1248,7 +1322,10 @@ body.hide-size-column .file-size {
 }
 
 .context-menu button {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
   width: 100%;
   min-height: 28px;
   padding: 4px 10px;
@@ -1257,6 +1334,21 @@ body.hide-size-column .file-size {
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.menu-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-shortcut {
+  flex: none;
+  opacity: 0.65;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .context-menu button:hover,
