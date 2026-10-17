@@ -321,7 +321,7 @@
     "package": "npm run check && node esbuild.js --production"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
+    "@types/node": "^24.19.2",
     "@types/vscode": "~1.100.0",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.0"
